@@ -124,7 +124,7 @@ export function CommandCenter({ result }: Props) {
                   transition={{ duration: 0.5 }}
                   className="absolute inset-0"
                 >
-                  <NeuralVisualization accent={accent} reduce={!!reduce} />
+                  <NeuralVisualization accent={accent} reduce={!!reduce} condition={result.condition} />
                 </motion.div>
               )}
               {view === "eeg" && (
@@ -445,154 +445,385 @@ function ExplainabilityPanel({ importance }: { importance: { name: string; value
 
 /* --------------------------- CENTRAL VISUALS --------------------------- */
 
-function NeuralVisualization({ accent, reduce }: { accent: string; reduce: boolean }) {
-  // Deterministic neural nodes
+// Anatomically-recognizable side-view digital brain built from SVG.
+// - Layer 1: transparent cyan cerebral silhouette with gyri/cerebellum/brain stem
+// - Layer 2: dense deterministic neural mesh confined to the silhouette
+// - Layer 3: slow signal pulses traveling along a few edges
+// - Layer 4: scenario-tinted "activity clusters" (conceptual, non-anatomical)
+// - Background: concentric scan rings + rotating scanner arc + scan band sweep
+// - Motion: subtle idle float + mouse parallax (desktop), respects reduced motion
+function NeuralVisualization({
+  accent,
+  reduce,
+  condition,
+}: {
+  accent: string;
+  reduce: boolean;
+  condition: ConditionKey;
+}) {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  // Side-profile cerebral silhouette (approximate, anatomically readable).
+  const BRAIN_OUTLINE =
+    "M 118 214 " +
+    "C 108 168 132 118 178 100 " +
+    "C 214 86 258 88 292 108 " +
+    "C 322 124 340 152 342 184 " +
+    "C 344 208 336 222 322 232 " +
+    "C 332 246 332 264 320 278 " +
+    "C 328 296 316 314 296 322 " +
+    "C 280 336 254 344 226 344 " +
+    "C 192 344 158 336 138 320 " +
+    "C 118 306 108 284 116 262 " +
+    "C 100 250 96 232 118 214 Z";
+
+  // Gyri (cortical folds) — thin arced lines that suggest the cerebral surface.
+  const GYRI = [
+    "M 132 168 C 168 150 208 148 244 158",
+    "M 128 194 C 170 176 224 176 274 190",
+    "M 128 222 C 176 210 236 212 288 226",
+    "M 138 250 C 184 240 244 244 296 258",
+    "M 152 278 C 194 272 246 276 296 288",
+    "M 172 304 C 210 302 254 304 292 312",
+    "M 200 108 C 208 140 210 190 208 244",
+    "M 244 108 C 252 150 254 210 250 268",
+    "M 168 116 C 172 154 172 210 172 260",
+  ];
+
+  // Central sulcus emphasis
+  const CENTRAL_SULCUS = "M 216 96 C 224 150 226 220 220 300";
+
+  // Cerebellum (small lobed structure lower-back) + brain stem
+  const CEREBELLUM =
+    "M 300 316 C 322 314 342 326 344 348 " +
+    "C 344 366 326 378 304 376 " +
+    "C 288 374 278 358 282 342 " +
+    "C 284 330 292 320 300 316 Z";
+  const BRAIN_STEM =
+    "M 268 340 C 272 360 274 380 268 396 " +
+    "L 258 396 C 254 378 254 358 258 340 Z";
+
+  // Deterministic neural nodes clipped to the brain silhouette
   const nodes = useMemo(() => {
-    const arr: { x: number; y: number; r: number }[] = [];
-    let s = 42;
-    const rnd = () => {
-      s = (s * 9301 + 49297) % 233280;
-      return s / 233280;
-    };
-    for (let i = 0; i < 26; i++) {
-      const angle = rnd() * Math.PI * 2;
-      const radius = 60 + rnd() * 110;
-      arr.push({
-        x: 200 + Math.cos(angle) * radius,
-        y: 200 + Math.sin(angle) * radius,
-        r: 1.2 + rnd() * 2.2,
-      });
+    const arr: { x: number; y: number; r: number; k: number }[] = [];
+    let s = 1337;
+    const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 0xffffffff);
+    // Silhouette bounding box roughly x∈[95,345], y∈[90,400]
+    while (arr.length < 130) {
+      const x = 100 + rnd() * 245;
+      const y = 95 + rnd() * 300;
+      // Rough elliptical clip approximating cerebrum + cerebellum region
+      const cerebrum =
+        Math.pow((x - 224) / 118, 2) + Math.pow((y - 220) / 128, 2) < 1;
+      const cerebellum =
+        Math.pow((x - 312) / 30, 2) + Math.pow((y - 348) / 26, 2) < 1;
+      if (!cerebrum && !cerebellum) continue;
+      arr.push({ x, y, r: 0.9 + rnd() * 1.9, k: Math.floor(rnd() * 100) });
     }
     return arr;
   }, []);
+
   const edges = useMemo(() => {
     const out: [number, number][] = [];
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[i].x - nodes[j].x;
         const dy = nodes[i].y - nodes[j].y;
-        if (Math.hypot(dx, dy) < 70) out.push([i, j]);
+        const d = Math.hypot(dx, dy);
+        if (d < 38) out.push([i, j]);
       }
     }
     return out;
   }, [nodes]);
 
+  // Scenario-specific activity cluster centers (conceptual only)
+  const CLUSTERS: Record<ConditionKey, { x: number; y: number; r: number }[]> = {
+    normal: [
+      { x: 200, y: 200, r: 40 },
+      { x: 260, y: 220, r: 34 },
+    ],
+    insomnia: [
+      { x: 175, y: 165, r: 32 },
+      { x: 250, y: 180, r: 30 },
+      { x: 210, y: 250, r: 28 },
+    ],
+    apnea: [
+      { x: 195, y: 210, r: 36 },
+      { x: 265, y: 240, r: 32 },
+      { x: 305, y: 350, r: 22 },
+    ],
+    seizure: [
+      { x: 175, y: 175, r: 38 },
+      { x: 240, y: 200, r: 36 },
+      { x: 275, y: 260, r: 30 },
+    ],
+  };
+
+  // Pick a few edges to animate as traveling signals
+  const signalEdges = useMemo(
+    () => edges.filter((_, i) => i % 11 === 0).slice(0, 8),
+    [edges],
+  );
+
+  const handleMouse = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (reduce) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: -py * 6, y: px * 8 });
+  };
+  const resetTilt = () => setTilt({ x: 0, y: 0 });
+
   return (
-    <svg viewBox="0 0 400 400" className="h-full w-full">
-      <defs>
-        <radialGradient id="brain-glow">
-          <stop offset="0%" stopColor={accent} stopOpacity="0.35" />
-          <stop offset="70%" stopColor={accent} stopOpacity="0.05" />
-          <stop offset="100%" stopColor={accent} stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="brain-stroke" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={accent} stopOpacity="0.9" />
-          <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0.6" />
-        </linearGradient>
-        <filter id="soft-glow">
-          <feGaussianBlur stdDeviation="2.5" />
-        </filter>
-      </defs>
-
-      {/* Outer glow disk */}
-      <circle cx="200" cy="200" r="180" fill="url(#brain-glow)" />
-
-      {/* Concentric rings */}
-      {[80, 120, 160, 190].map((r, i) => (
-        <motion.circle
-          key={r}
-          cx="200"
-          cy="200"
-          r={r}
-          fill="none"
-          stroke={accent}
-          strokeOpacity={0.12 + i * 0.05}
-          strokeWidth={0.8}
-          strokeDasharray={i % 2 ? "2 4" : undefined}
-          initial={{ opacity: 0.3 }}
-          animate={reduce ? undefined : { opacity: [0.3, 0.7, 0.3] }}
-          transition={{ duration: 4 + i, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
-        />
-      ))}
-
-      {/* Rotating scanning sweep */}
-      {!reduce && (
-        <motion.g
-          style={{ transformOrigin: "200px 200px" }}
-          animate={{ rotate: 360 }}
-          transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-        >
-          <path
-            d="M 200 200 L 200 20 A 180 180 0 0 1 340 130 Z"
-            fill={accent}
-            fillOpacity={0.06}
-          />
-          <line x1="200" y1="200" x2="200" y2="20" stroke={accent} strokeOpacity="0.5" strokeWidth="1" />
-        </motion.g>
-      )}
-
-      {/* Stylized brain shape (abstract two-hemisphere silhouette) */}
-      <g stroke="url(#brain-stroke)" fill="none" strokeWidth="1.5" strokeLinecap="round">
-        <path d="M200 90 C 140 90 100 140 100 200 C 100 260 140 310 200 310 C 260 310 300 260 300 200 C 300 140 260 90 200 90 Z" opacity="0.55" />
-        <path d="M200 90 C 180 130 180 270 200 310" opacity="0.4" />
-        <path d="M130 140 C 170 160 170 240 130 260" opacity="0.4" />
-        <path d="M270 140 C 230 160 230 240 270 260" opacity="0.4" />
-        <path d="M150 200 C 175 190 225 210 250 200" opacity="0.35" />
-      </g>
-
-      {/* Neural nodes + connections */}
-      <g>
-        {edges.map(([a, b], i) => (
-          <line
-            key={i}
-            x1={nodes[a].x}
-            y1={nodes[a].y}
-            x2={nodes[b].x}
-            y2={nodes[b].y}
-            stroke={accent}
-            strokeOpacity="0.22"
-            strokeWidth="0.6"
-          />
-        ))}
-        {nodes.map((n, i) => (
+    <div
+      className="absolute inset-0"
+      onMouseMove={handleMouse}
+      onMouseLeave={resetTilt}
+      style={{ perspective: 1200 }}
+    >
+      {/* Background scan grid ring */}
+      <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full">
+        <defs>
+          <radialGradient id="bg-halo">
+            <stop offset="0%" stopColor={accent} stopOpacity="0.18" />
+            <stop offset="60%" stopColor={accent} stopOpacity="0.04" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="200" cy="210" r="185" fill="url(#bg-halo)" />
+        {[110, 145, 175, 195].map((r, i) => (
           <motion.circle
-            key={i}
-            cx={n.x}
-            cy={n.y}
-            r={n.r}
-            fill={accent}
-            initial={{ opacity: 0.6 }}
-            animate={reduce ? undefined : { opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 2.6 + (i % 4) * 0.4, repeat: Infinity, ease: "easeInOut", delay: (i % 5) * 0.2 }}
+            key={r}
+            cx="200"
+            cy="210"
+            r={r}
+            fill="none"
+            stroke="var(--accent-cyan)"
+            strokeOpacity={0.08 + i * 0.03}
+            strokeWidth={0.6}
+            strokeDasharray={i % 2 ? "2 5" : undefined}
+            initial={{ opacity: 0.3 }}
+            animate={reduce ? undefined : { opacity: [0.25, 0.55, 0.25] }}
+            transition={{ duration: 5 + i, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
           />
         ))}
-      </g>
+        {/* Rotating scanner arc — independent from brain */}
+        {!reduce && (
+          <motion.g
+            style={{ transformOrigin: "200px 210px" }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
+          >
+            <path
+              d="M 200 210 L 200 15 A 195 195 0 0 1 355 130 Z"
+              fill="var(--accent-cyan)"
+              fillOpacity={0.04}
+            />
+            <line x1="200" y1="210" x2="200" y2="15" stroke="var(--accent-cyan)" strokeOpacity="0.35" strokeWidth="0.8" />
+          </motion.g>
+        )}
+        {/* Coordinate ticks */}
+        <g stroke="var(--accent-cyan)" strokeOpacity="0.3" strokeWidth="0.5">
+          {Array.from({ length: 24 }).map((_, i) => {
+            const a = (i / 24) * Math.PI * 2;
+            const x1 = 200 + Math.cos(a) * 198;
+            const y1 = 210 + Math.sin(a) * 198;
+            const x2 = 200 + Math.cos(a) * (i % 3 === 0 ? 188 : 193);
+            const y2 = 210 + Math.sin(a) * (i % 3 === 0 ? 188 : 193);
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />;
+          })}
+        </g>
+      </svg>
 
-      {/* Central pulse */}
-      {!reduce && (
-        <motion.circle
-          cx="200"
-          cy="200"
-          r={10}
-          fill={accent}
-          filter="url(#soft-glow)"
-          initial={{ r: 10, opacity: 0.7 }}
-          animate={{ r: [10, 22, 10], opacity: [0.7, 0.15, 0.7] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        />
-      )}
-      <circle cx="200" cy="200" r="5" fill={accent} />
+      {/* Brain layer with tilt + idle float */}
+      <motion.div
+        className="absolute inset-0"
+        animate={
+          reduce
+            ? undefined
+            : { y: [0, -4, 0, 3, 0] }
+        }
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          transformStyle: "preserve-3d",
+          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+          transition: "transform 400ms ease-out",
+        }}
+      >
+        <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full">
+          <defs>
+            <linearGradient id="brain-body" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0.18" />
+              <stop offset="60%" stopColor="var(--accent-blue)" stopOpacity="0.08" />
+              <stop offset="100%" stopColor={accent} stopOpacity="0.14" />
+            </linearGradient>
+            <linearGradient id="brain-edge" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0.95" />
+              <stop offset="100%" stopColor={accent} stopOpacity="0.75" />
+            </linearGradient>
+            <radialGradient id="cluster-glow">
+              <stop offset="0%" stopColor={accent} stopOpacity="0.55" />
+              <stop offset="60%" stopColor={accent} stopOpacity="0.15" />
+              <stop offset="100%" stopColor={accent} stopOpacity="0" />
+            </radialGradient>
+            <filter id="node-glow">
+              <feGaussianBlur stdDeviation="1.4" />
+            </filter>
+            <filter id="soft-blur">
+              <feGaussianBlur stdDeviation="0.6" />
+            </filter>
+            <clipPath id="brain-clip">
+              <path d={BRAIN_OUTLINE} />
+              <path d={CEREBELLUM} />
+            </clipPath>
+            <linearGradient id="scan-band" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0" />
+              <stop offset="50%" stopColor="var(--accent-cyan)" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
 
-      {/* EEG overlay along the equator */}
-      <g transform="translate(40 340)" opacity="0.45">
-        <EEGPath color={accent} />
-      </g>
+          {/* Brain-stem behind cerebellum */}
+          <path d={BRAIN_STEM} fill="url(#brain-body)" stroke="url(#brain-edge)" strokeWidth="1.1" opacity="0.9" />
 
-      {/* AI VISUALIZATION label */}
-      <text x="200" y="392" textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize="8" fill="currentColor" opacity="0.5" className="text-muted-foreground">
-        AI Visualization — Conceptual Signal Representation
-      </text>
-    </svg>
+          {/* Cerebrum body */}
+          <path
+            d={BRAIN_OUTLINE}
+            fill="url(#brain-body)"
+            stroke="url(#brain-edge)"
+            strokeWidth="1.4"
+            filter="url(#soft-blur)"
+            opacity="0.95"
+          />
+          {/* Cerebellum */}
+          <path
+            d={CEREBELLUM}
+            fill="url(#brain-body)"
+            stroke="url(#brain-edge)"
+            strokeWidth="1.1"
+            opacity="0.95"
+          />
+
+          {/* Cortical fold hints (gyri) */}
+          <g stroke="var(--accent-cyan)" strokeOpacity="0.35" strokeWidth="0.7" fill="none" clipPath="url(#brain-clip)">
+            {GYRI.map((d, i) => (
+              <path key={i} d={d} />
+            ))}
+            <path d={CENTRAL_SULCUS} strokeOpacity="0.45" />
+            {/* Cerebellum striations */}
+            <path d="M 288 328 C 312 322 336 336 342 356" />
+            <path d="M 286 344 C 310 340 334 350 344 366" />
+          </g>
+
+          {/* Everything below is confined inside the brain silhouette */}
+          <g clipPath="url(#brain-clip)">
+            {/* Scenario activity clusters (conceptual glows) */}
+            {CLUSTERS[condition].map((c, i) => (
+              <motion.circle
+                key={`cl-${i}`}
+                cx={c.x}
+                cy={c.y}
+                r={c.r}
+                fill="url(#cluster-glow)"
+                initial={{ opacity: 0.35 }}
+                animate={reduce ? undefined : { opacity: [0.25, 0.7, 0.25] }}
+                transition={{ duration: 3.2 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}
+              />
+            ))}
+
+            {/* Neural mesh — edges */}
+            <g stroke="var(--accent-cyan)" strokeOpacity="0.18" strokeWidth="0.4">
+              {edges.map(([a, b], i) => (
+                <line key={i} x1={nodes[a].x} y1={nodes[a].y} x2={nodes[b].x} y2={nodes[b].y} />
+              ))}
+            </g>
+
+            {/* Traveling signal pulses along a few edges */}
+            {!reduce &&
+              signalEdges.map(([a, b], i) => (
+                <motion.circle
+                  key={`sig-${i}`}
+                  r={1.6}
+                  fill={accent}
+                  filter="url(#node-glow)"
+                  initial={{ cx: nodes[a].x, cy: nodes[a].y, opacity: 0 }}
+                  animate={{
+                    cx: [nodes[a].x, nodes[b].x],
+                    cy: [nodes[a].y, nodes[b].y],
+                    opacity: [0, 1, 0],
+                  }}
+                  transition={{
+                    duration: 2.2 + (i % 3) * 0.6,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.4,
+                  }}
+                />
+              ))}
+
+            {/* Neural nodes */}
+            {nodes.map((n, i) => {
+              // Nodes inside any cluster get accent color; others stay cyan
+              const inCluster = CLUSTERS[condition].some(
+                (c) => Math.hypot(c.x - n.x, c.y - n.y) < c.r,
+              );
+              const fill = inCluster ? accent : "var(--accent-cyan)";
+              return (
+                <motion.circle
+                  key={i}
+                  cx={n.x}
+                  cy={n.y}
+                  r={n.r}
+                  fill={fill}
+                  initial={{ opacity: inCluster ? 0.7 : 0.45 }}
+                  animate={
+                    reduce
+                      ? undefined
+                      : { opacity: inCluster ? [0.55, 1, 0.55] : [0.35, 0.75, 0.35] }
+                  }
+                  transition={{
+                    duration: 2.4 + (n.k % 5) * 0.35,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: (n.k % 7) * 0.15,
+                  }}
+                />
+              );
+            })}
+
+            {/* Scanning band — vertical translucent sweep, 6s loop */}
+            {!reduce && (
+              <motion.rect
+                x="80"
+                width="280"
+                height="34"
+                fill="url(#scan-band)"
+                initial={{ y: 80 }}
+                animate={{ y: [80, 380, 80] }}
+                transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+              />
+            )}
+          </g>
+
+          {/* Central highlight */}
+          <circle cx="222" cy="212" r="3" fill="var(--accent-cyan)" filter="url(#node-glow)" />
+
+          {/* Conceptual disclaimer */}
+          <text
+            x="200"
+            y="392"
+            textAnchor="middle"
+            fontFamily="ui-monospace, monospace"
+            fontSize="8"
+            fill="currentColor"
+            opacity="0.55"
+            className="text-muted-foreground"
+          >
+            AI Visualization — Conceptual Signal Representation
+          </text>
+        </svg>
+      </motion.div>
+    </div>
   );
 }
 
