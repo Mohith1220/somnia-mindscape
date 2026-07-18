@@ -473,20 +473,20 @@ function BrainRoot({ condition }: { condition: ConditionKey }) {
   const target = useRef({ x: 0, y: 0 });
 
   useFrame((state, delta) => {
-    // Restrict parallax to a subtle range
-    target.current.x = pointer.y * 0.15;
-    target.current.y = pointer.x * 0.28 + Math.sin(state.clock.elapsedTime * 0.15) * 0.03;
+    // Very subtle perspective tilt — never enough to flip or lose the brain
+    const MAX_TILT_X = 0.08; // pitch (up/down) ~4.5°
+    const MAX_TILT_Y = 0.14; // yaw (left/right) ~8°
+    const px = Math.max(-1, Math.min(1, pointer.x || 0));
+    const py = Math.max(-1, Math.min(1, pointer.y || 0));
+    target.current.x = py * MAX_TILT_X;
+    target.current.y = px * MAX_TILT_Y + Math.sin(state.clock.elapsedTime * 0.15) * 0.015;
     if (group.current) {
-      // Smoothly interpolate rotation
       group.current.rotation.x += (target.current.x - group.current.rotation.x) * Math.min(1, delta * 3);
-      group.current.rotation.y += (target.current.y - group.current.rotation.y) * Math.min(1, delta * 3);
-      // Subtle idle float
-      group.current.position.y = Math.sin(state.clock.elapsedTime * 0.6) * 0.04;
+      group.current.rotation.y += (-0.35 + target.current.y - group.current.rotation.y) * Math.min(1, delta * 3);
+      group.current.position.y = Math.sin(state.clock.elapsedTime * 0.6) * 0.03;
     }
   });
 
-  return (
-    <group ref={group} rotation={[0, -0.35, 0]}>
       <BrainAssembly condition={condition} />
       <ScanPlane />
     </group>
