@@ -487,11 +487,14 @@ function BrainRoot({ condition }: { condition: ConditionKey }) {
     }
   });
 
+  return (
+    <group ref={group}>
       <BrainAssembly condition={condition} />
       <ScanPlane />
     </group>
   );
 }
+
 
 /* -------------------- Public Canvas -------------------- */
 export default function Brain3D({ condition }: { condition: ConditionKey }) {
