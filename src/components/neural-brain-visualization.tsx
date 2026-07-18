@@ -234,11 +234,11 @@ function NeuralActivityOverlay({ condition }: { condition: ConditionKey }) {
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         return (
           <line key={`c-${i}`}>
-            {/* @ts-expect-error - three primitive prop */}
             <primitive object={geometry} attach="geometry" />
             <lineBasicMaterial color={primary} transparent opacity={0.22} />
           </line>
         );
+
       })}
 
       {/* Signal pulses (scenario-tinted) */}
