@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { Brain, Waves, Radar, Sparkles, ShieldAlert, ActivitySquare } from "lucide-react";
+
+const Brain3D = lazy(() => import("@/components/brain-3d"));
+
 import {
   CONDITION_META,
   RISK_COLOR,
