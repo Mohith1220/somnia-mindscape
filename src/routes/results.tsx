@@ -65,19 +65,15 @@ function ResultsPage() {
     navigate({ to: "/analysis" });
   };
   const handleDownload = () => {
-    const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `SOMNIA_Report_${result.id}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast.success("Report downloaded");
+    import("@/lib/report").then(({ downloadReport }) => {
+      downloadReport(result);
+      toast.success("Report downloaded");
+    });
   };
   const handlePrint = () => {
-    window.print();
+    import("@/lib/report").then(({ openReport }) => {
+      openReport(result, true);
+    });
   };
 
   // Cycle demo results quickly (optional convenience for demos)

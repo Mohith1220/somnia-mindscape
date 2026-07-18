@@ -41,8 +41,10 @@ function AnalysisStudio() {
   const [features, setFeatures] = useState({ mean: "", std: "", variance: "", min: "", max: "" });
 
   const loadDemoFile = () => {
-    setFileLoaded({ name: "demo_sleep_signal.csv", size: "2.4 MB" });
-    toast.success("Demo EEG sample loaded");
+    const s = DEMO_SCENARIOS[selectedDemo];
+    const slug = selectedDemo === "apnea" ? "sleep_apnea" : selectedDemo;
+    setFileLoaded({ name: `demo_${slug}_signal.csv`, size: "2.4 MB" });
+    toast.success(`Demo ${s.conditionLabel} sample loaded`);
   };
 
   const loadDemoValues = () => {
@@ -164,18 +166,18 @@ function AnalysisStudio() {
                 </div>
               ) : (
                 <div>
-                  <div className="rounded-xl border border-border bg-surface/50 p-5 flex items-center gap-4">
-                    <div className="grid h-12 w-12 place-items-center rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan">
+                  <div className="rounded-xl border border-status-normal/30 bg-status-normal/5 p-5 flex items-center gap-4">
+                    <div className="grid h-12 w-12 place-items-center rounded-lg bg-status-normal/10 border border-status-normal/30 text-status-normal">
                       <FileText className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <div className="font-medium truncate">{fileLoaded.name}</div>
-                        <span className="rounded-full bg-status-normal/15 text-status-normal text-[10px] uppercase tracking-widest px-2 py-0.5 border border-status-normal/30">
-                          <CheckCircle2 className="h-2.5 w-2.5 inline mr-1" /> Ready
+                        <span className="rounded-full bg-status-normal/15 text-status-normal text-[10px] uppercase tracking-widest px-2 py-0.5 border border-status-normal/30 inline-flex items-center gap-1">
+                          <CheckCircle2 className="h-2.5 w-2.5" /> File Validated
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">EEG Dataset · {fileLoaded.size} · Uploaded just now</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">EEG Signal Data · {fileLoaded.size} · Ready for Feature Extraction</div>
                       <div className="mt-2 h-1 rounded-full bg-surface-3 overflow-hidden">
                         <div className="h-full w-full bg-gradient-to-r from-accent-cyan to-accent-blue" />
                       </div>
@@ -186,7 +188,7 @@ function AnalysisStudio() {
                   </div>
                   <div className="mt-6 flex justify-end">
                     <Button size="lg" className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow" onClick={() => startAnalysis()}>
-                      <Play className="h-4 w-4 mr-2" /> Analyze EEG Data
+                      <Play className="h-4 w-4 mr-2" /> Begin AI Analysis
                     </Button>
                   </div>
                 </div>

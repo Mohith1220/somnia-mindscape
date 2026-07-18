@@ -13,8 +13,8 @@ import { EEGWave } from "@/components/eeg-wave";
 type ViewMode = "neural" | "eeg" | "feature" | "ai";
 
 const HERO_LABEL: Record<ConditionKey, string> = {
-  normal: "STABLE PATTERN",
-  insomnia: "SLEEP PATTERN VARIATION",
+  normal: "STABLE SIGNAL PATTERN",
+  insomnia: "SLEEP PATTERN VARIATION DETECTED",
   apnea: "SLEEP APNEA PATTERN DETECTED",
   seizure: "ABNORMAL NEURAL PATTERN DETECTED",
 };

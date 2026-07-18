@@ -40,13 +40,36 @@ function HistoryPage() {
     navigate({ to: "/results" });
   };
 
+  const summary = useMemo(() => {
+    const total = HISTORY_RECORDS.length;
+    const latest = HISTORY_RECORDS.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+    const avg = HISTORY_RECORDS.reduce((s, x) => s + x.confidence, 0) / total;
+    return { total, latestDate: latest?.date ?? "—", latestLabel: latest ? CONDITION_META[latest.condition].label : "—", avg };
+  }, []);
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">History</div>
-        <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">Analysis History</h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">Previous AI-assisted screening analyses.</p>
+        <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">Screening Timeline</h1>
+        <p className="mt-3 max-w-2xl text-muted-foreground">Review previous AI-assisted screening analyses and reopen any record.</p>
       </motion.div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="glass-card rounded-2xl p-5">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total Analyses</div>
+          <div className="mt-2 text-3xl font-semibold tabular-nums">{summary.total}</div>
+        </div>
+        <div className="glass-card rounded-2xl p-5">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Latest Screening</div>
+          <div className="mt-2 text-lg font-semibold">{summary.latestLabel}</div>
+          <div className="text-xs text-muted-foreground font-mono mt-0.5">{summary.latestDate}</div>
+        </div>
+        <div className="glass-card rounded-2xl p-5">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Average Confidence</div>
+          <div className="mt-2 text-3xl font-semibold tabular-nums text-accent-cyan">{summary.avg.toFixed(1)}%</div>
+        </div>
+      </div>
 
       <div className="mt-8 glass-card rounded-2xl p-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">

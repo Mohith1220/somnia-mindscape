@@ -60,6 +60,25 @@ function AboutPage() {
         ))}
       </div>
 
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-12">
+        <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Principles</div>
+        <h2 className="mt-1 text-2xl font-semibold">Responsible AI</h2>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { k: "Transparency", d: "Every prediction is accompanied by class probabilities and reference metadata." },
+            { k: "Explainability", d: "Feature contribution is exposed so users see why the model responded as it did." },
+            { k: "Human Oversight", d: "Screening output is presented as a decision-support signal, never as a diagnosis." },
+            { k: "Responsible Screening", d: "Results are clearly framed as AI-assisted screening and encourage professional review." },
+          ].map((p, i) => (
+            <div key={p.k} className="glass-card rounded-2xl p-5">
+              <div className="text-[10px] font-mono text-muted-foreground">P0{i + 1}</div>
+              <div className="mt-1 text-sm font-semibold">{p.k}</div>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{p.d}</p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
       <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
         className="mt-8 rounded-2xl border border-status-high/40 bg-status-high/5 p-6">
         <div className="flex items-start gap-4">

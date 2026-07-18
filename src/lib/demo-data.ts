@@ -137,7 +137,7 @@ export const DEMO_SCENARIOS: Record<ConditionKey, AnalysisResult> = {
     confidence: 91.4,
     risk: "Moderate",
     probabilities: { normal: 3.2, insomnia: 4.1, apnea: 91.4, seizure: 1.3 },
-    features: { mean: 0.152, std: 24.61, variance: 605.7, min: -78.4, max: 82.9 },
+    features: { mean: 0.42, std: 24.60, variance: 605.7, min: -78.3, max: 82.9 },
     featureImportance: [
       { name: "Signal Variance", value: 31 },
       { name: "Maximum Amplitude", value: 24 },

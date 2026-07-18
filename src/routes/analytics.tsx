@@ -72,7 +72,7 @@ function AnalyticsPage() {
             <BarChart data={MODEL_METRICS} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis dataKey="model" tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
-              <YAxis domain={[70, 100]} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} unit="%" />
+              <YAxis domain={[0, 100]} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} unit="%" />
               <RTooltip
                 contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
                 formatter={(v: number) => [`${v}%`, METRIC_LABEL[metric]]}
@@ -86,7 +86,7 @@ function AnalyticsPage() {
           </ResponsiveContainer>
         </div>
         <div className="mt-4 text-xs text-muted-foreground">
-          Values shown on a truncated 70–100% scale for visual clarity. Random Forest is designated as the primary classification model.
+          Full 0–100% scale used for honest visual comparison. Random Forest is designated as the primary classification model.
         </div>
       </div>
 
