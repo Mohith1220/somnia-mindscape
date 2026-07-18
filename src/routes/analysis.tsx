@@ -81,11 +81,26 @@ function AnalysisStudio() {
     <TooltipProvider>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Analysis Studio</div>
+          <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Neural Analysis</div>
           <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">AI Analysis Studio</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Upload EEG data or enter extracted signal features to begin intelligent pattern analysis.
+            Analyze EEG-derived neural signal patterns using our machine learning classification pipeline.
           </p>
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-2xl">
+            {[
+              { k: "AI Engine", v: "Ready", dot: "var(--status-normal)" },
+              { k: "Model", v: "Random Forest", dot: "var(--accent-cyan)" },
+              { k: "Input Features", v: "5", dot: "var(--accent-blue)" },
+              { k: "Classes", v: "4", dot: "var(--status-moderate)" },
+            ].map((s) => (
+              <div key={s.k} className="glass-card rounded-lg px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-widest text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} /> {s.k}
+                </div>
+                <div className="mt-0.5 text-sm font-mono">{s.v}</div>
+              </div>
+            ))}
+          </div>
         </motion.div>
 
         {/* Demo scenario selector */}
