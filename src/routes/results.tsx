@@ -31,11 +31,19 @@ function ResultsPage() {
   const { currentResult, runAnalysis, reset } = useAnalysisStore();
   // Fallback to demo apnea if navigating directly
   const [result, setResult] = useState(currentResult ?? DEMO_SCENARIOS.apnea);
+  const isDemo = !currentResult;
+  const [displayDate, setDisplayDate] = useState<string>("");
 
   useEffect(() => {
     if (currentResult) setResult(currentResult);
     else setResult(DEMO_SCENARIOS.apnea);
   }, [currentResult]);
+
+  // Only render the human-formatted date on the client to avoid SSR hydration
+  // mismatches (locale/timezone/Date.now drift between server and browser).
+  useEffect(() => {
+    setDisplayDate(new Date(result.timestamp).toLocaleString());
+  }, [result.timestamp]);
 
   const conditionMeta = CONDITION_META[result.condition];
 
