@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAnalysisStore } from "@/lib/analysis-store";
 import { CONDITION_META, DEMO_SCENARIOS, generateWaveform, RISK_COLOR } from "@/lib/demo-data";
 import { EEGWave } from "@/components/eeg-wave";
+import { CommandCenter } from "@/components/command-center";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RTooltip, Cell,
   LineChart, Line, CartesianGrid,
