@@ -523,7 +523,7 @@ function NeuralVisualization({
       <div className="absolute inset-0">
         {mounted ? (
           <Suspense fallback={<BrainFallback accent={accent} />}>
-            <Brain3D condition={condition} />
+            <NeuralBrainVisualization condition={condition} />
           </Suspense>
         ) : (
           <BrainFallback accent={accent} />
