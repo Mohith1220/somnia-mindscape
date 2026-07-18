@@ -196,9 +196,9 @@ export function CommandCenter({ result }: Props) {
 
             {/* Callouts — desktop only */}
             <div className="pointer-events-none absolute inset-0 hidden lg:block">
-              <Callout style={{ top: "18%", left: "-6%" }} title="PATTERN CLASSIFICATION" value={meta.label} sub={`${result.confidence.toFixed(1)}% Confidence`} color={accent} />
-              <Callout style={{ top: "58%", left: "-8%" }} title="SIGNAL VARIANCE" value="Elevated Model Influence" sub={`${result.featureImportance[0].value}%`} color="var(--accent-blue)" />
-              <Callout style={{ top: "72%", right: "-6%" }} title="RISK ASSESSMENT" value={result.risk} color={riskColor} />
+              <Callout style={{ top: "10%", left: "3%" }} title="PATTERN CLASSIFICATION" value={meta.label} sub={`${result.confidence.toFixed(1)}% Confidence`} color={accent} />
+              <Callout style={{ bottom: "18%", left: "3%" }} title="SIGNAL VARIANCE" value="Elevated Model Influence" sub={`${result.featureImportance[0].value}%`} color="var(--accent-blue)" />
+              <Callout style={{ top: "10%", right: "3%" }} title="RISK ASSESSMENT" value={result.risk} color={riskColor} />
             </div>
           </div>
 
