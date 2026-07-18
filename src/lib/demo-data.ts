@@ -58,10 +58,12 @@ export const CONDITION_META: Record<ConditionKey, { label: string; color: string
   },
 };
 
+const DEMO_TIMESTAMP = "2026-07-18T09:00:00.000Z";
+
 export const DEMO_SCENARIOS: Record<ConditionKey, AnalysisResult> = {
   normal: {
     id: "SA-2026-0718-100",
-    timestamp: new Date().toISOString(),
+    timestamp: DEMO_TIMESTAMP,
     condition: "normal",
     conditionLabel: "Normal Sleep",
     confidence: 96.1,
