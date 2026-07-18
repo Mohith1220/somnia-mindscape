@@ -31,11 +31,19 @@ function ResultsPage() {
   const { currentResult, runAnalysis, reset } = useAnalysisStore();
   // Fallback to demo apnea if navigating directly
   const [result, setResult] = useState(currentResult ?? DEMO_SCENARIOS.apnea);
+  const isDemo = !currentResult;
+  const [displayDate, setDisplayDate] = useState<string>("");
 
   useEffect(() => {
     if (currentResult) setResult(currentResult);
     else setResult(DEMO_SCENARIOS.apnea);
   }, [currentResult]);
+
+  // Only render the human-formatted date on the client to avoid SSR hydration
+  // mismatches (locale/timezone/Date.now drift between server and browser).
+  useEffect(() => {
+    setDisplayDate(new Date(result.timestamp).toLocaleString());
+  }, [result.timestamp]);
 
   const conditionMeta = CONDITION_META[result.condition];
 
@@ -84,12 +92,21 @@ function ResultsPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Intelligence Report</div>
           <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight">AI Health Intelligence Report</h1>
+          <div className="mt-2 text-sm text-muted-foreground max-w-xl">
+            Machine learning-assisted analysis of EEG-derived neural signal patterns.
+          </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-muted-foreground font-mono">
             <span>ID <span className="text-foreground">{result.id}</span></span>
-            <span>{new Date(result.timestamp).toLocaleString()}</span>
+            <span suppressHydrationWarning>{displayDate || "\u00A0"}</span>
+            <span>Type <span className="text-foreground">EEG Feature Analysis</span></span>
             <span className="inline-flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-status-normal animate-pulse" /> Analysis Complete
             </span>
+            {isDemo && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-cyan/40 bg-accent-cyan/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-accent-cyan">
+                Demo Analysis
+              </span>
+            )}
           </div>
         </motion.div>
         <div className="flex flex-wrap gap-2 print:hidden">
@@ -99,23 +116,34 @@ function ResultsPage() {
         </div>
       </div>
 
-      {/* Demo switcher */}
-      <div className="mt-4 print:hidden flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-muted-foreground">View demo scenario:</span>
-        {(["normal", "insomnia", "apnea", "seizure"] as const).map((k) => (
-          <button
-            key={k}
-            onClick={() => cycleDemo(k)}
-            className={`px-2.5 py-1 rounded-md border transition-colors ${
-              result.condition === k
-                ? "bg-accent-cyan/15 border-accent-cyan/40 text-accent-cyan"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-surface-2"
-            }`}
-          >
-            {CONDITION_META[k].label}
-          </button>
-        ))}
+      {/* Demo scenario explorer */}
+      <div className="mt-6 print:hidden glass-card rounded-2xl p-3 sm:p-4 flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan">Demo Scenario Explorer</span>
+          <span className="text-muted-foreground hidden sm:inline">— switch context to see the report update instantly.</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-surface/60 p-1">
+          {(["normal", "insomnia", "apnea", "seizure"] as const).map((k) => {
+            const active = result.condition === k;
+            const c = CONDITION_META[k].color;
+            return (
+              <button
+                key={k}
+                onClick={() => cycleDemo(k)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
+                  active
+                    ? "bg-accent-cyan/15 text-accent-cyan"
+                    : "text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                }`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: c }} />
+                {CONDITION_META[k].label}
+              </button>
+            );
+          })}
+        </div>
       </div>
+
 
       {/* Main result grid */}
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
