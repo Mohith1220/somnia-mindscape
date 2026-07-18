@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAnalysisStore } from "@/lib/analysis-store";
 import { CONDITION_META, DEMO_SCENARIOS, generateWaveform, RISK_COLOR } from "@/lib/demo-data";
 import { EEGWave } from "@/components/eeg-wave";
+import { CommandCenter } from "@/components/command-center";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RTooltip, Cell,
   LineChart, Line, CartesianGrid,
@@ -145,102 +146,9 @@ function ResultsPage() {
       </div>
 
 
-      {/* Main result grid */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        {/* Main result card */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-          className="lg:col-span-2 relative overflow-hidden glass-card rounded-2xl p-6 sm:p-8"
-        >
-          <div className="absolute inset-x-0 top-0 h-40 opacity-40" style={{ background: `linear-gradient(180deg, ${conditionMeta.color}30, transparent)` }} />
-          <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">Detected Condition</div>
-              <div className="mt-2 flex items-center gap-3">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ background: conditionMeta.color }} />
-                <div className="text-3xl sm:text-4xl font-semibold tracking-tight">{conditionMeta.label.toUpperCase()}</div>
-              </div>
-              <p className="mt-3 max-w-lg text-sm text-muted-foreground leading-relaxed">
-                The analyzed signal contains patterns associated with {conditionMeta.label}.
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Risk</div>
-                  <div className="mt-1 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium" style={{ borderColor: `${RISK_COLOR[result.risk]}55`, background: `${RISK_COLOR[result.risk]}18`, color: RISK_COLOR[result.risk] }}>
-                    <AlertCircle className="h-3 w-3" /> {result.risk}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Model</div>
-                  <div className="mt-1 text-sm font-mono">Random Forest</div>
-                </div>
-              </div>
-            </div>
-            <ConfidenceRing value={result.confidence} color={conditionMeta.color} />
-          </div>
-          <div className="relative mt-6 rounded-lg border border-border/60 bg-surface/40 p-3 text-xs text-muted-foreground">
-            AI-assisted screening result — not a medical diagnosis.
-          </div>
-        </motion.div>
+      {/* Neural Intelligence Command Center */}
+      <CommandCenter result={result} />
 
-        {/* Sleep intelligence radial */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
-          className="glass-card rounded-2xl p-6 sm:p-8">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Sleep Intelligence Score</div>
-          <div className="mt-4 grid place-items-center">
-            <RadialScore value={result.intelligenceScore} />
-          </div>
-          <div className="mt-4 text-center">
-            <div className="text-sm">
-              <span className="font-semibold">{result.intelligenceScore}</span>
-              <span className="text-muted-foreground"> / 100</span>
-            </div>
-            <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">Status: {statusForScore(result.intelligenceScore)}</div>
-            <div className="mt-3 text-[10px] text-muted-foreground italic">Demo Wellness Indicator — illustrative only</div>
-          </div>
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            <MiniStat label="Signal Stability" value={result.signalStability} />
-            <MiniStat label="Pattern Consistency" value={result.patternConsistency} />
-            <MiniStat label="Risk Index" value={result.riskIndex} invert />
-          </div>
-          <div className="mt-3 text-[10px] text-muted-foreground">Demo-derived indicators.</div>
-        </motion.div>
-      </div>
-
-      {/* Class probability distribution */}
-      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-        className="mt-6 glass-card rounded-2xl p-6 sm:p-8">
-        <div className="flex items-end justify-between flex-wrap gap-3">
-          <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Class Probabilities</div>
-            <h2 className="mt-1 text-xl font-semibold">Prediction distribution across screened conditions</h2>
-          </div>
-          <div className="text-xs text-muted-foreground font-mono">Total: 100%</div>
-        </div>
-        <div className="mt-6 space-y-4">
-          {probData.map((p) => {
-            const highlight = p.key === result.condition;
-            return (
-              <div key={p.key}>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full" style={{ background: p.color }} />
-                    <span className={highlight ? "font-semibold" : "text-muted-foreground"}>{p.name}</span>
-                    {highlight && <span className="text-[10px] uppercase tracking-widest text-accent-cyan">Predicted</span>}
-                  </div>
-                  <span className="font-mono tabular-nums text-sm" style={{ color: highlight ? p.color : undefined }}>{p.value.toFixed(1)}%</span>
-                </div>
-                <div className="mt-1.5 h-2 rounded-full bg-surface-3 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }} animate={{ width: `${p.value}%` }} transition={{ duration: 0.9, ease: "easeOut" }}
-                    className="h-full rounded-full" style={{ background: p.color, boxShadow: highlight ? `0 0 20px ${p.color}55` : undefined }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </motion.div>
 
       {/* Signal Explorer */}
       <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -344,6 +252,35 @@ function ResultsPage() {
         <InsightCard icon={AlertCircle} title="Risk Insight" body={result.insights.risk} accent={conditionMeta.color} />
         <InsightCard icon={TrendingUp} title="Recommended Next Step" body={result.insights.nextStep} accent="var(--accent-blue)" />
       </motion.div>
+
+      {/* Wellness Indicator */}
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+        className="mt-6 glass-card rounded-2xl p-6 sm:p-8">
+        <div className="flex items-start justify-between flex-wrap gap-6">
+          <div className="min-w-0">
+            <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Wellness Indicator</div>
+            <h2 className="mt-1 text-xl font-semibold">Sleep Intelligence Score</h2>
+            <p className="mt-1 text-sm text-muted-foreground max-w-md">
+              An illustrative demo indicator derived from the classification result.
+            </p>
+            <div className="mt-4 grid grid-cols-3 gap-2 max-w-md">
+              <MiniStat label="Signal Stability" value={result.signalStability} />
+              <MiniStat label="Pattern Consistency" value={result.patternConsistency} />
+              <MiniStat label="Risk Index" value={result.riskIndex} invert />
+            </div>
+          </div>
+          <div className="text-center">
+            <RadialScore value={result.intelligenceScore} />
+            <div className="mt-2 text-sm">
+              <span className="font-semibold">{result.intelligenceScore}</span>
+              <span className="text-muted-foreground"> / 100</span>
+            </div>
+            <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">Status: {statusForScore(result.intelligenceScore)}</div>
+            <div className="mt-2 text-[10px] text-muted-foreground italic">Demo Wellness Indicator — illustrative only</div>
+          </div>
+        </div>
+      </motion.div>
+
 
       {/* Recommendations */}
       <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
