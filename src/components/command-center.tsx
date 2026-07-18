@@ -573,9 +573,10 @@ function NeuralVisualization({ accent, reduce }: { accent: string; reduce: boole
         <motion.circle
           cx="200"
           cy="200"
-          r="12"
+          r={10}
           fill={accent}
           filter="url(#soft-glow)"
+          initial={{ r: 10, opacity: 0.7 }}
           animate={{ r: [10, 22, 10], opacity: [0.7, 0.15, 0.7] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         />
