@@ -1,9 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { Brain, Waves, Radar, Sparkles, ShieldAlert, ActivitySquare } from "lucide-react";
-
-const NeuralBrainVisualization = lazy(() => import("@/components/neural-brain-visualization"));
-
 import {
   CONDITION_META,
   RISK_COLOR,
@@ -127,7 +124,7 @@ export function CommandCenter({ result }: Props) {
                   transition={{ duration: 0.5 }}
                   className="absolute inset-0"
                 >
-                  <NeuralVisualization accent={accent} reduce={!!reduce} condition={result.condition} />
+                  <NeuralVisualization accent={accent} reduce={!!reduce} />
                 </motion.div>
               )}
               {view === "eeg" && (
@@ -446,113 +443,158 @@ function ExplainabilityPanel({ importance }: { importance: { name: string; value
   );
 }
 
-/* --------------------------- CENTRAL VISUAL --------------------------- */
+/* --------------------------- CENTRAL VISUALS --------------------------- */
 
-// Volumetric 3D digital brain (React Three Fiber) framed by lightweight
-// SVG scan graphics. The brain is the dominant element; scan rings and
-// coordinate ticks sit behind it as technical framing.
-function NeuralVisualization({
-  accent,
-  reduce,
-  condition,
-}: {
-  accent: string;
-  reduce: boolean;
-  condition: ConditionKey;
-}) {
-  // Only mount the 3D canvas after hydration on the client.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+function NeuralVisualization({ accent, reduce }: { accent: string; reduce: boolean }) {
+  // Deterministic neural nodes
+  const nodes = useMemo(() => {
+    const arr: { x: number; y: number; r: number }[] = [];
+    let s = 42;
+    const rnd = () => {
+      s = (s * 9301 + 49297) % 233280;
+      return s / 233280;
+    };
+    for (let i = 0; i < 26; i++) {
+      const angle = rnd() * Math.PI * 2;
+      const radius = 60 + rnd() * 110;
+      arr.push({
+        x: 200 + Math.cos(angle) * radius,
+        y: 200 + Math.sin(angle) * radius,
+        r: 1.2 + rnd() * 2.2,
+      });
+    }
+    return arr;
+  }, []);
+  const edges = useMemo(() => {
+    const out: [number, number][] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        if (Math.hypot(dx, dy) < 70) out.push([i, j]);
+      }
+    }
+    return out;
+  }, [nodes]);
 
   return (
-    <div className="absolute inset-0">
-      {/* Background scan graphics (behind brain, low opacity) */}
-      <svg viewBox="0 0 400 400" className="absolute inset-0 h-full w-full opacity-70">
-        <defs>
-          <radialGradient id="bg-halo">
-            <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0.16" />
-            <stop offset="60%" stopColor="var(--accent-cyan)" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="200" cy="200" r="185" fill="url(#bg-halo)" />
-        {[120, 155, 185, 198].map((r, i) => (
-          <motion.circle
-            key={r}
-            cx="200"
-            cy="200"
-            r={r}
-            fill="none"
-            stroke="var(--accent-cyan)"
-            strokeOpacity={0.06 + i * 0.02}
-            strokeWidth={0.6}
-            strokeDasharray={i % 2 ? "2 6" : undefined}
-            initial={{ opacity: 0.3 }}
-            animate={reduce ? undefined : { opacity: [0.2, 0.45, 0.2] }}
-            transition={{ duration: 6 + i, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+    <svg viewBox="0 0 400 400" className="h-full w-full">
+      <defs>
+        <radialGradient id="brain-glow">
+          <stop offset="0%" stopColor={accent} stopOpacity="0.35" />
+          <stop offset="70%" stopColor={accent} stopOpacity="0.05" />
+          <stop offset="100%" stopColor={accent} stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="brain-stroke" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={accent} stopOpacity="0.9" />
+          <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0.6" />
+        </linearGradient>
+        <filter id="soft-glow">
+          <feGaussianBlur stdDeviation="2.5" />
+        </filter>
+      </defs>
+
+      {/* Outer glow disk */}
+      <circle cx="200" cy="200" r="180" fill="url(#brain-glow)" />
+
+      {/* Concentric rings */}
+      {[80, 120, 160, 190].map((r, i) => (
+        <motion.circle
+          key={r}
+          cx="200"
+          cy="200"
+          r={r}
+          fill="none"
+          stroke={accent}
+          strokeOpacity={0.12 + i * 0.05}
+          strokeWidth={0.8}
+          strokeDasharray={i % 2 ? "2 4" : undefined}
+          initial={{ opacity: 0.3 }}
+          animate={reduce ? undefined : { opacity: [0.3, 0.7, 0.3] }}
+          transition={{ duration: 4 + i, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+        />
+      ))}
+
+      {/* Rotating scanning sweep */}
+      {!reduce && (
+        <motion.g
+          style={{ transformOrigin: "200px 200px" }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+        >
+          <path
+            d="M 200 200 L 200 20 A 180 180 0 0 1 340 130 Z"
+            fill={accent}
+            fillOpacity={0.06}
+          />
+          <line x1="200" y1="200" x2="200" y2="20" stroke={accent} strokeOpacity="0.5" strokeWidth="1" />
+        </motion.g>
+      )}
+
+      {/* Stylized brain shape (abstract two-hemisphere silhouette) */}
+      <g stroke="url(#brain-stroke)" fill="none" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M200 90 C 140 90 100 140 100 200 C 100 260 140 310 200 310 C 260 310 300 260 300 200 C 300 140 260 90 200 90 Z" opacity="0.55" />
+        <path d="M200 90 C 180 130 180 270 200 310" opacity="0.4" />
+        <path d="M130 140 C 170 160 170 240 130 260" opacity="0.4" />
+        <path d="M270 140 C 230 160 230 240 270 260" opacity="0.4" />
+        <path d="M150 200 C 175 190 225 210 250 200" opacity="0.35" />
+      </g>
+
+      {/* Neural nodes + connections */}
+      <g>
+        {edges.map(([a, b], i) => (
+          <line
+            key={i}
+            x1={nodes[a].x}
+            y1={nodes[a].y}
+            x2={nodes[b].x}
+            y2={nodes[b].y}
+            stroke={accent}
+            strokeOpacity="0.22"
+            strokeWidth="0.6"
           />
         ))}
-        {!reduce && (
-          <motion.g
-            style={{ transformOrigin: "200px 200px" }}
-            animate={{ rotate: 360 }}
-            transition={{ duration: 26, repeat: Infinity, ease: "linear" }}
-          >
-            <path
-              d="M 200 200 L 200 15 A 195 195 0 0 1 355 130 Z"
-              fill="var(--accent-cyan)"
-              fillOpacity={0.03}
-            />
-            <line x1="200" y1="200" x2="200" y2="15" stroke="var(--accent-cyan)" strokeOpacity="0.25" strokeWidth="0.7" />
-          </motion.g>
-        )}
-        {/* Fine coordinate ticks */}
-        <g stroke="var(--accent-cyan)" strokeOpacity="0.22" strokeWidth="0.5">
-          {Array.from({ length: 36 }).map((_, i) => {
-            const a = (i / 36) * Math.PI * 2;
-            const x1 = 200 + Math.cos(a) * 198;
-            const y1 = 200 + Math.sin(a) * 198;
-            const x2 = 200 + Math.cos(a) * (i % 3 === 0 ? 186 : 192);
-            const y2 = 200 + Math.sin(a) * (i % 3 === 0 ? 186 : 192);
-            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />;
-          })}
-        </g>
-      </svg>
+        {nodes.map((n, i) => (
+          <motion.circle
+            key={i}
+            cx={n.x}
+            cy={n.y}
+            r={n.r}
+            fill={accent}
+            initial={{ opacity: 0.6 }}
+            animate={reduce ? undefined : { opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 2.6 + (i % 4) * 0.4, repeat: Infinity, ease: "easeInOut", delay: (i % 5) * 0.2 }}
+          />
+        ))}
+      </g>
 
-      {/* Volumetric 3D brain */}
-      <div className="absolute inset-0">
-        {mounted ? (
-          <Suspense fallback={<BrainFallback accent={accent} />}>
-            <NeuralBrainVisualization condition={condition} />
-          </Suspense>
-        ) : (
-          <BrainFallback accent={accent} />
-        )}
-      </div>
+      {/* Central pulse */}
+      {!reduce && (
+        <motion.circle
+          cx="200"
+          cy="200"
+          r={10}
+          fill={accent}
+          filter="url(#soft-glow)"
+          initial={{ r: 10, opacity: 0.7 }}
+          animate={{ r: [10, 22, 10], opacity: [0.7, 0.15, 0.7] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+      <circle cx="200" cy="200" r="5" fill={accent} />
 
-      {/* Conceptual disclaimer */}
-      <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 text-center text-[9px] font-mono uppercase tracking-widest text-muted-foreground/70">
+      {/* EEG overlay along the equator */}
+      <g transform="translate(40 340)" opacity="0.45">
+        <EEGPath color={accent} />
+      </g>
+
+      {/* AI VISUALIZATION label */}
+      <text x="200" y="392" textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize="8" fill="currentColor" opacity="0.5" className="text-muted-foreground">
         AI Visualization — Conceptual Signal Representation
-      </div>
-    </div>
+      </text>
+    </svg>
   );
 }
-
-function BrainFallback({ accent }: { accent: string }) {
-  return (
-    <div className="grid h-full w-full place-items-center">
-      <div
-        className="h-40 w-40 rounded-full"
-        style={{
-          background: `radial-gradient(closest-side, ${accent}44, transparent 70%)`,
-          animation: "pulse-glow 2.4s ease-in-out infinite",
-        }}
-      />
-    </div>
-  );
-}
-
-
 
 function EEGPath({ color }: { color: string }) {
   const pts = useMemo(() => generateWaveform(3, 80), []);
