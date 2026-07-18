@@ -253,6 +253,35 @@ function ResultsPage() {
         <InsightCard icon={TrendingUp} title="Recommended Next Step" body={result.insights.nextStep} accent="var(--accent-blue)" />
       </motion.div>
 
+      {/* Wellness Indicator */}
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+        className="mt-6 glass-card rounded-2xl p-6 sm:p-8">
+        <div className="flex items-start justify-between flex-wrap gap-6">
+          <div className="min-w-0">
+            <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Wellness Indicator</div>
+            <h2 className="mt-1 text-xl font-semibold">Sleep Intelligence Score</h2>
+            <p className="mt-1 text-sm text-muted-foreground max-w-md">
+              An illustrative demo indicator derived from the classification result.
+            </p>
+            <div className="mt-4 grid grid-cols-3 gap-2 max-w-md">
+              <MiniStat label="Signal Stability" value={result.signalStability} />
+              <MiniStat label="Pattern Consistency" value={result.patternConsistency} />
+              <MiniStat label="Risk Index" value={result.riskIndex} invert />
+            </div>
+          </div>
+          <div className="text-center">
+            <RadialScore value={result.intelligenceScore} />
+            <div className="mt-2 text-sm">
+              <span className="font-semibold">{result.intelligenceScore}</span>
+              <span className="text-muted-foreground"> / 100</span>
+            </div>
+            <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">Status: {statusForScore(result.intelligenceScore)}</div>
+            <div className="mt-2 text-[10px] text-muted-foreground italic">Demo Wellness Indicator — illustrative only</div>
+          </div>
+        </div>
+      </motion.div>
+
+
       {/* Recommendations */}
       <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
         className="mt-6 glass-card rounded-2xl p-6 sm:p-8">
