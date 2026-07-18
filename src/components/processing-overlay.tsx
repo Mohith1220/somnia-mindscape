@@ -4,10 +4,12 @@ import { EEGWave } from "./eeg-wave";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 const STAGES = [
-  { id: "01", title: "Signal Processing", messages: ["Reading EEG signal data...", "Filtering signal noise..."] },
-  { id: "02", title: "Feature Extraction", messages: ["Extracting statistical signal characteristics..."] },
-  { id: "03", title: "Pattern Recognition", messages: ["Evaluating neurological patterns..."] },
-  { id: "04", title: "AI Classification", messages: ["Running Random Forest classifier...", "Calculating prediction confidence...", "Generating health insights..."] },
+  { id: "01", title: "Signal Validation", message: "Validating EEG signal data..." },
+  { id: "02", title: "Feature Extraction", message: "Extracting statistical signal characteristics..." },
+  { id: "03", title: "Feature Scaling", message: "Standardizing extracted features..." },
+  { id: "04", title: "Pattern Recognition", message: "Evaluating neural signal patterns..." },
+  { id: "05", title: "AI Classification", message: "Running Random Forest classifier..." },
+  { id: "06", title: "Confidence Analysis", message: "Calculating classification confidence..." },
 ];
 
 interface Props {
@@ -18,41 +20,35 @@ interface Props {
 
 export function ProcessingOverlay({ open, onComplete, seed = 3 }: Props) {
   const [stage, setStage] = useState(0);
-  const [msg, setMsg] = useState(0);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setStage(0);
-      setMsg(0);
       setDone(false);
       return;
     }
-    let s = 0, m = 0;
-    setStage(0); setMsg(0); setDone(false);
-    const stageDur = 850;
-    const msgDur = 280;
-    const msgInt = setInterval(() => {
-      m = (m + 1) % 3;
-      setMsg(m);
-    }, msgDur);
-    const stageInt = setInterval(() => {
+    setStage(0);
+    setDone(false);
+    const stageDur = 580;
+    let s = 0;
+    const int = setInterval(() => {
       s += 1;
       if (s >= STAGES.length) {
-        clearInterval(stageInt);
-        clearInterval(msgInt);
+        clearInterval(int);
         setStage(STAGES.length - 1);
         setDone(true);
-        setTimeout(() => onComplete(), 700);
+        setTimeout(() => onComplete(), 800);
         return;
       }
       setStage(s);
     }, stageDur);
-    return () => {
-      clearInterval(stageInt);
-      clearInterval(msgInt);
-    };
+    return () => clearInterval(int);
   }, [open, onComplete]);
+
+  const currentMessage = done
+    ? "Generating AI-assisted insights..."
+    : STAGES[stage].message;
 
   return (
     <AnimatePresence>
@@ -62,6 +58,9 @@ export function ProcessingOverlay({ open, onComplete, seed = 3 }: Props) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-xl grid place-items-center px-4"
+          role="dialog"
+          aria-label="AI processing in progress"
+          aria-live="polite"
         >
           <div className="absolute inset-0 grid-bg opacity-40" />
           <div className="absolute inset-0 scanline pointer-events-none opacity-40" />
@@ -84,14 +83,14 @@ export function ProcessingOverlay({ open, onComplete, seed = 3 }: Props) {
             <div className="glass-card rounded-2xl p-6 sm:p-8 shadow-elevated">
               <EEGWave seed={seed} height={100} />
 
-              <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {STAGES.map((s, i) => {
                   const active = i === stage && !done;
                   const complete = i < stage || done;
                   return (
                     <div
                       key={s.id}
-                      className={`relative rounded-xl border p-3 transition-all ${
+                      className={`relative rounded-xl border p-2.5 transition-all ${
                         complete
                           ? "border-status-normal/40 bg-status-normal/5"
                           : active
@@ -109,7 +108,7 @@ export function ProcessingOverlay({ open, onComplete, seed = 3 }: Props) {
                           <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
                         )}
                       </div>
-                      <div className={`mt-2 text-xs font-medium ${active || complete ? "text-foreground" : "text-muted-foreground"}`}>
+                      <div className={`mt-1.5 text-[11px] font-medium leading-tight ${active || complete ? "text-foreground" : "text-muted-foreground"}`}>
                         {s.title}
                       </div>
                     </div>
@@ -120,13 +119,13 @@ export function ProcessingOverlay({ open, onComplete, seed = 3 }: Props) {
               <div className="mt-6 h-6 text-center">
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={`${stage}-${msg}`}
+                    key={`${stage}-${done}`}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     className="text-sm text-muted-foreground font-mono"
                   >
-                    {done ? "Rendering intelligence report..." : STAGES[stage].messages[msg % STAGES[stage].messages.length]}
+                    {currentMessage}
                   </motion.div>
                 </AnimatePresence>
               </div>
