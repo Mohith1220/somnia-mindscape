@@ -97,7 +97,7 @@ export const DEMO_SCENARIOS: Record<ConditionKey, AnalysisResult> = {
   },
   insomnia: {
     id: "SA-2026-0718-101",
-    timestamp: new Date().toISOString(),
+    timestamp: DEMO_TIMESTAMP,
     condition: "insomnia",
     conditionLabel: "Insomnia",
     confidence: 88.7,
@@ -131,7 +131,7 @@ export const DEMO_SCENARIOS: Record<ConditionKey, AnalysisResult> = {
   },
   apnea: {
     id: "SA-2026-0718-001",
-    timestamp: new Date().toISOString(),
+    timestamp: DEMO_TIMESTAMP,
     condition: "apnea",
     conditionLabel: "Sleep Apnea",
     confidence: 91.4,
@@ -165,7 +165,7 @@ export const DEMO_SCENARIOS: Record<ConditionKey, AnalysisResult> = {
   },
   seizure: {
     id: "SA-2026-0718-102",
-    timestamp: new Date().toISOString(),
+    timestamp: DEMO_TIMESTAMP,
     condition: "seizure",
     conditionLabel: "Seizure Activity",
     confidence: 94.8,
