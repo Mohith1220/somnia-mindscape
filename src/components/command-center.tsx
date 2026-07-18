@@ -124,7 +124,7 @@ export function CommandCenter({ result }: Props) {
                   transition={{ duration: 0.5 }}
                   className="absolute inset-0"
                 >
-                  <NeuralVisualization accent={accent} reduce={!!reduce} />
+                  <NeuralVisualization accent={accent} reduce={!!reduce} condition={result.condition} />
                 </motion.div>
               )}
               {view === "eeg" && (
