@@ -250,7 +250,8 @@ export const RISK_COLOR: Record<RiskLevel, string> = {
 export function generateWaveform(seed: number, points = 400): number[] {
   const out: number[] = [];
   // simple LCG
-  let s = seed * 9973 + 12345;
+  const normalizedSeed = Math.abs(Math.trunc(seed)) % 1_000_000;
+  let s = normalizedSeed * 9973 + 12345;
   const rnd = () => {
     s = (s * 1664525 + 1013904223) >>> 0;
     return (s / 0xffffffff) * 2 - 1;
