@@ -142,7 +142,7 @@ function HistoryPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <Button size="sm" variant="outline" onClick={() => openRecord(r.condition)}>
+                      <Button size="sm" variant="outline" onClick={() => openRecord(r)}>
                         <Eye className="h-3.5 w-3.5 mr-1.5" /> View
                       </Button>
                     </td>
