@@ -5,7 +5,7 @@ import { Search, ArrowUpDown, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CONDITION_META, HISTORY_RECORDS, RISK_COLOR, type ConditionKey, type RiskLevel } from "@/lib/demo-data";
+import { CONDITION_META, DEMO_SCENARIOS, HISTORY_RECORDS, RISK_COLOR, type ConditionKey, type RiskLevel } from "@/lib/demo-data";
 import { useAnalysisStore } from "@/lib/analysis-store";
 
 export const Route = createFileRoute("/history")({
