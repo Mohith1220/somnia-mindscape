@@ -17,7 +17,7 @@ const SECTIONS = [
   {
     icon: Sparkles,
     title: "Mission",
-    body: "SOMNIA AI explores how machine learning can support early screening of sleep and neurological patterns using EEG-derived statistical features. Our goal is to make intelligent, explainable screening accessible for education, research and demonstration.",
+    body: "SOMNIA AI explores how machine learning can support early screening of sleep and neurological patterns using EEG-derived statistical features. Our goal is to make intelligent, explainable screening accessible for education and research workflows.",
   },
   {
     icon: Cpu,
@@ -32,7 +32,7 @@ const SECTIONS = [
   {
     icon: Shield,
     title: "Responsible AI",
-    body: "SOMNIA AI emphasizes transparency and explainability. Every prediction is accompanied by class probabilities, feature importance, and clearly labeled demo indicators. Users are never presented with definitive medical conclusions.",
+    body: "SOMNIA AI emphasizes transparency and explainability. Every prediction is accompanied by class probabilities, feature importance, and clear screening context. Users are never presented with definitive medical conclusions.",
   },
 ];
 

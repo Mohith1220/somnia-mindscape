@@ -188,7 +188,7 @@ function LandingPage() {
           <div className="relative">
             <h3 className="text-3xl md:text-5xl font-semibold tracking-tight text-gradient">Ready to see your neural pattern?</h3>
             <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-              Run the AI Analysis Studio with a demo EEG sample or your own feature values.
+              Run the AI Analysis Studio with your own EEG dataset or extracted feature values.
             </p>
             <div className="mt-8 flex justify-center gap-3 flex-wrap">
               <Link to="/analysis"><Button size="lg" className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow">Start AI Analysis <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>

@@ -85,7 +85,8 @@ function AnalysisStudio() {
       toast.error("Please enter valid numeric values for all features.");
       return;
     }
-    const result = buildResultFromFeatures(parsed, "manual-entry");
+    const fingerprint = `${parsed.mean}|${parsed.std}|${parsed.variance}|${parsed.min}|${parsed.max}|manual`;
+    const result = buildResultFromFeatures(parsed, "manual-entry", fingerprint);
     setPendingResult(result);
     setProcessing(true);
   };
@@ -143,6 +144,7 @@ function AnalysisStudio() {
           <TabsContent value="upload" className="mt-6">
             <div className="glass-card rounded-2xl p-6 sm:p-8">
               <input
+                id="eeg-file-upload"
                 ref={fileInputRef}
                 type="file"
                 accept=".csv,.txt,text/csv,text/plain"
@@ -168,13 +170,12 @@ function AnalysisStudio() {
                   <p className="mt-1 text-sm text-muted-foreground">Drag and drop your EEG dataset or browse your device.</p>
                   <p className="mt-1 text-xs text-muted-foreground">Supported: CSV, TXT · numeric samples · Max 50MB</p>
                   <div className="mt-6 flex justify-center gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={parsing}
+                    <Label
+                      htmlFor="eeg-file-upload"
+                      className={`inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground ${parsing ? "pointer-events-none opacity-50" : ""}`}
                     >
                       {parsing ? "Reading file…" : "Choose CSV File"}
-                    </Button>
+                    </Label>
                   </div>
                 </div>
               ) : (
@@ -191,6 +192,22 @@ function AnalysisStudio() {
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">EEG Signal Data · {fileLoaded.size} · Ready for Feature Extraction</div>
+                      {pendingResult ? (
+                        <div className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+                          <div className="rounded-md border border-border/70 bg-surface/50 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">AI Classification</span>
+                            <span className="ml-2 font-mono text-foreground">{pendingResult.conditionLabel}</span>
+                          </div>
+                          <div className="rounded-md border border-border/70 bg-surface/50 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">Confidence</span>
+                            <span className="ml-2 font-mono text-foreground">{pendingResult.confidence.toFixed(1)}%</span>
+                          </div>
+                          <div className="rounded-md border border-border/70 bg-surface/50 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">Variance</span>
+                            <span className="ml-2 font-mono text-foreground">{pendingResult.features.variance.toFixed(1)}</span>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="mt-2 h-1 rounded-full bg-surface-3 overflow-hidden">
                         <div className="h-full w-full bg-gradient-to-r from-accent-cyan to-accent-blue" />
                       </div>
