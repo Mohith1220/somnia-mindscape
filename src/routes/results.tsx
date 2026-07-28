@@ -29,36 +29,41 @@ export const Route = createFileRoute("/results")({
 
 function ResultsPage() {
   const navigate = useNavigate();
-  const { currentResult, runAnalysis, reset } = useAnalysisStore();
-  // Fallback to demo apnea if navigating directly
-  const [result, setResult] = useState(currentResult ?? DEMO_SCENARIOS.apnea);
-  const isDemo = !currentResult;
+  const { currentResult, reset } = useAnalysisStore();
   const [displayDate, setDisplayDate] = useState<string>("");
 
+  // Redirect back to /analysis if no analysis has been run yet.
   useEffect(() => {
-    if (currentResult) setResult(currentResult);
-    else setResult(DEMO_SCENARIOS.apnea);
+    if (!currentResult) navigate({ to: "/analysis" });
+  }, [currentResult, navigate]);
+
+  useEffect(() => {
+    if (currentResult) setDisplayDate(new Date(currentResult.timestamp).toLocaleString());
   }, [currentResult]);
 
-  // Only render the human-formatted date on the client to avoid SSR hydration
-  // mismatches (locale/timezone/Date.now drift between server and browser).
-  useEffect(() => {
-    setDisplayDate(new Date(result.timestamp).toLocaleString());
-  }, [result.timestamp]);
+  const result = currentResult;
 
-  const conditionMeta = CONDITION_META[result.condition];
-
-  const probData = useMemo(() => [
-    { name: "Normal", key: "normal", value: result.probabilities.normal, color: "var(--status-normal)" },
-    { name: "Insomnia", key: "insomnia", value: result.probabilities.insomnia, color: "var(--status-moderate)" },
-    { name: "Sleep Apnea", key: "apnea", value: result.probabilities.apnea, color: "var(--status-high)" },
-    { name: "Seizure Activity", key: "seizure", value: result.probabilities.seizure, color: "var(--status-critical)" },
-  ], [result]);
+  const probData = useMemo(() => {
+    if (!result) return [];
+    return [
+      { name: "Normal", key: "normal", value: result.probabilities.normal, color: "var(--status-normal)" },
+      { name: "Insomnia", key: "insomnia", value: result.probabilities.insomnia, color: "var(--status-moderate)" },
+      { name: "Sleep Apnea", key: "apnea", value: result.probabilities.apnea, color: "var(--status-high)" },
+      { name: "Seizure Activity", key: "seizure", value: result.probabilities.seizure, color: "var(--status-critical)" },
+    ];
+  }, [result]);
 
   const [zoom, setZoom] = useState(1);
   const [signalMode, setSignalMode] = useState<"raw" | "processed" | "feature">("raw");
 
-  const waveform = useMemo(() => generateWaveform(result.waveformSeed, 400), [result.waveformSeed]);
+  const waveform = useMemo(
+    () => (result ? generateWaveform(result.waveformSeed, 400) : []),
+    [result],
+  );
+
+  if (!result) return null;
+
+  const conditionMeta = CONDITION_META[result.condition];
 
   const handleNew = () => {
     reset();
@@ -74,12 +79,6 @@ function ResultsPage() {
     import("@/lib/report").then(({ openReport }) => {
       openReport(result, true);
     });
-  };
-
-  // Cycle demo results quickly (optional convenience for demos)
-  const cycleDemo = (k: typeof result.condition) => {
-    const r = runAnalysis(k);
-    setResult(r);
   };
 
   return (
