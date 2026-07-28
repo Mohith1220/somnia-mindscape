@@ -144,6 +144,7 @@ function AnalysisStudio() {
           <TabsContent value="upload" className="mt-6">
             <div className="glass-card rounded-2xl p-6 sm:p-8">
               <input
+                id="eeg-file-upload"
                 ref={fileInputRef}
                 type="file"
                 accept=".csv,.txt,text/csv,text/plain"
