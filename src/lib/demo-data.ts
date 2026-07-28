@@ -115,6 +115,21 @@ export const RISK_COLOR: Record<RiskLevel, string> = {
   Critical: "var(--status-critical)",
 };
 
+export const CONDITION_HEX: Record<ConditionKey, string> = {
+  normal: "#4ade80",
+  insomnia: "#facc15",
+  apnea: "#fb923c",
+  seizure: "#ef4444",
+};
+
+export const RISK_HEX: Record<RiskLevel, string> = {
+  Low: "#4ade80",
+  Medium: "#facc15",
+  Moderate: "#fb923c",
+  High: "#f97316",
+  Critical: "#ef4444",
+};
+
 // Deterministic waveform generator (seeded)
 export function generateWaveform(seed: number, points = 400): number[] {
   const out: number[] = [];

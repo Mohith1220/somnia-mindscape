@@ -1,13 +1,5 @@
 import type { AnalysisResult } from "./demo-data";
-import { CONDITION_META } from "./demo-data";
-
-const RISK_HEX: Record<string, string> = {
-  Low: "#4ade80",
-  Medium: "#facc15",
-  Moderate: "#fb923c",
-  High: "#f97316",
-  Critical: "#ef4444",
-};
+import { CONDITION_HEX, CONDITION_META, RISK_HEX } from "./demo-data";
 
 function escape(s: string) {
   return s.replace(/[&<>"']/g, (c) =>
@@ -28,7 +20,7 @@ export function buildReportHTML(r: AnalysisResult, opts: { print?: boolean } = {
       const v = r.probabilities[k];
       const isWin = k === r.condition;
       return `<tr>
-        <td><span class="dot" style="background:${meta.color.replace("var(--status-normal)", "#4ade80").replace("var(--status-moderate)", "#facc15").replace("var(--status-high)", "#fb923c").replace("var(--status-critical)", "#ef4444")}"></span>${escape(meta.label)}${isWin ? ' <span class="tag">PREDICTED</span>' : ""}</td>
+        <td><span class="dot" style="background:${CONDITION_HEX[k]}"></span>${escape(meta.label)}${isWin ? ' <span class="tag">PREDICTED</span>' : ""}</td>
         <td class="right mono">${v.toFixed(1)}%</td>
         <td>${bar(v, isWin ? "#22d3ee" : "#64748b")}</td>
       </tr>`;

@@ -102,7 +102,7 @@ export function CommandCenter({ result }: Props) {
         {/* LEFT COLUMN — panels */}
         <div className="order-3 flex flex-col gap-4 lg:order-1 lg:col-span-3">
           <AnalysisProfilePanel result={result} />
-          <SignalIntelligencePanel metrics={featureMetrics} accent={accent} reduce={!!reduce} seed={result.waveformSeed} />
+          <SignalIntelligencePanel metrics={featureMetrics} accent={accent} reduce={!!reduce} seed={result.waveformSeed} samples={result.signalSamples} />
         </div>
 
         {/* CENTER — visualization */}
@@ -288,7 +288,19 @@ function AnalysisProfilePanel({ result }: { result: AnalysisResult }) {
   );
 }
 
-function SignalIntelligencePanel({ metrics, accent, reduce, seed }: { metrics: { k: string; v: string }[]; accent: string; reduce: boolean; seed: number }) {
+function SignalIntelligencePanel({
+  metrics,
+  accent,
+  reduce,
+  seed,
+  samples,
+}: {
+  metrics: { k: string; v: string }[];
+  accent: string;
+  reduce: boolean;
+  seed: number;
+  samples?: number[];
+}) {
   return (
     <PanelShell title="Signal Intelligence">
       <div className="grid gap-2.5">
@@ -298,7 +310,7 @@ function SignalIntelligencePanel({ metrics, accent, reduce, seed }: { metrics: {
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{m.k}</div>
               <div className="font-mono text-sm">{m.v}</div>
             </div>
-            <Sparkline seed={seed + i * 37} color={accent} animate={!reduce} />
+            <Sparkline seed={seed + i * 37} color={accent} animate={!reduce} samples={samples} segmentIndex={i} segmentCount={metrics.length} />
           </div>
         ))}
       </div>
@@ -803,8 +815,31 @@ function Callout({
   );
 }
 
-function Sparkline({ seed, color, animate }: { seed: number; color: string; animate: boolean }) {
-  const pts = useMemo(() => generateWaveform(seed + 10, 30), [seed]);
+function Sparkline({
+  seed,
+  color,
+  animate,
+  samples,
+  segmentIndex,
+  segmentCount,
+}: {
+  seed: number;
+  color: string;
+  animate: boolean;
+  samples?: number[];
+  segmentIndex: number;
+  segmentCount: number;
+}) {
+  const pts = useMemo(() => {
+    if (samples?.length && samples.length >= 2) {
+      const safeCount = Math.max(1, segmentCount);
+      const segmentSize = Math.max(2, Math.floor(samples.length / safeCount));
+      const start = Math.min(samples.length - 2, segmentIndex * segmentSize);
+      const end = Math.min(samples.length, start + segmentSize + 1);
+      return resample(samples.slice(start, end), 30);
+    }
+    return generateWaveform(seed + 10, 30);
+  }, [samples, seed, segmentIndex, segmentCount]);
   const w = 60,
     h = 20;
   const max = Math.max(...pts.map(Math.abs)) || 1;
