@@ -24,7 +24,7 @@ function HistoryPage() {
   const [riskFilter, setRiskFilter] = useState<"all" | RiskLevel>("all");
   const [sortAsc, setSortAsc] = useState(false);
   const navigate = useNavigate();
-  const runAnalysis = useAnalysisStore((s) => s.runAnalysis);
+  const setResult = useAnalysisStore((s) => s.setResult);
 
   const rows = useMemo(() => {
     let r = [...HISTORY_RECORDS];
@@ -35,8 +35,15 @@ function HistoryPage() {
     return r;
   }, [q, condFilter, riskFilter, sortAsc]);
 
-  const openRecord = (condition: ConditionKey) => {
-    runAnalysis(condition);
+  const openRecord = (record: (typeof HISTORY_RECORDS)[number]) => {
+    const template = DEMO_SCENARIOS[record.condition];
+    setResult({
+      ...template,
+      id: record.id,
+      timestamp: new Date(record.date).toISOString(),
+      confidence: record.confidence,
+      risk: record.risk,
+    });
     navigate({ to: "/results" });
   };
 
