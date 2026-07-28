@@ -46,8 +46,8 @@ export function CommandCenter({ result }: Props) {
   );
 
   const waveform = useMemo(
-    () => generateWaveform(result.waveformSeed, 220),
-    [result.waveformSeed],
+    () => (result.signalSamples?.length ? result.signalSamples : generateWaveform(result.waveformSeed, 220)),
+    [result.signalSamples, result.waveformSeed],
   );
 
   const featureMetrics = [
@@ -102,7 +102,7 @@ export function CommandCenter({ result }: Props) {
         {/* LEFT COLUMN — panels */}
         <div className="order-3 flex flex-col gap-4 lg:order-1 lg:col-span-3">
           <AnalysisProfilePanel result={result} />
-          <SignalIntelligencePanel metrics={featureMetrics} accent={accent} reduce={!!reduce} />
+          <SignalIntelligencePanel metrics={featureMetrics} accent={accent} reduce={!!reduce} seed={result.waveformSeed} />
         </div>
 
         {/* CENTER — visualization */}
@@ -124,7 +124,7 @@ export function CommandCenter({ result }: Props) {
                   transition={{ duration: 0.5 }}
                   className="absolute inset-0"
                 >
-                  <NeuralVisualization accent={accent} reduce={!!reduce} />
+                  <NeuralVisualization accent={accent} reduce={!!reduce} seed={result.waveformSeed} samples={result.signalSamples} />
                 </motion.div>
               )}
               {view === "eeg" && (
@@ -138,9 +138,9 @@ export function CommandCenter({ result }: Props) {
                 >
                   <div className="w-full">
                     <div className="text-center text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      EEG Signal — Seed {result.waveformSeed}
+                      EEG Signal — {result.signalProfile.sampleCount} samples processed
                     </div>
-                    <EEGWave seed={result.waveformSeed} height={220} color={accent} strokeWidth={1.8} fill animate={!reduce} />
+                    <EEGWave seed={result.waveformSeed} samples={result.signalSamples} height={220} color={accent} strokeWidth={1.8} fill animate={!reduce} />
                     <div className="mt-4 grid grid-cols-4 gap-2 text-center text-[10px] font-mono text-muted-foreground">
                       {["δ 0.5-4Hz", "θ 4-8Hz", "α 8-13Hz", "β 13-30Hz"].map((b) => (
                         <div key={b} className="rounded-md border border-border/60 bg-surface/60 px-1.5 py-1">{b}</div>
@@ -188,8 +188,8 @@ export function CommandCenter({ result }: Props) {
 
             {/* Coordinate markers */}
             <div className="pointer-events-none absolute inset-0 font-mono text-[9px] text-muted-foreground/70">
-              <span className="absolute left-3 top-10">X:0.42</span>
-              <span className="absolute right-3 top-10">Y:-0.18</span>
+              <span className="absolute left-3 top-10">μ:{result.features.mean.toFixed(2)}</span>
+              <span className="absolute right-3 top-10">P:{result.signalProfile.peakCount}</span>
               <span className="absolute left-3 bottom-3">Z:{result.features.variance.toFixed(1)}</span>
               <span className="absolute right-3 bottom-3">σ:{result.features.std.toFixed(2)}</span>
             </div>
@@ -197,7 +197,7 @@ export function CommandCenter({ result }: Props) {
             {/* Callouts — desktop only */}
             <div className="pointer-events-none absolute inset-0 hidden lg:block">
               <Callout style={{ top: "10%", left: "3%" }} title="PATTERN CLASSIFICATION" value={meta.label} sub={`${result.confidence.toFixed(1)}% Confidence`} color={accent} />
-              <Callout style={{ bottom: "18%", left: "3%" }} title="SIGNAL VARIANCE" value="Elevated Model Influence" sub={`${result.featureImportance[0].value}%`} color="var(--accent-blue)" />
+              <Callout style={{ bottom: "18%", left: "3%" }} title="TOP FEATURE" value={result.featureImportance[0].name} sub={`${result.featureImportance[0].value}% influence`} color="var(--accent-blue)" />
               <Callout style={{ top: "10%", right: "3%" }} title="RISK ASSESSMENT" value={result.risk} color={riskColor} />
             </div>
           </div>
@@ -288,7 +288,7 @@ function AnalysisProfilePanel({ result }: { result: AnalysisResult }) {
   );
 }
 
-function SignalIntelligencePanel({ metrics, accent, reduce }: { metrics: { k: string; v: string }[]; accent: string; reduce: boolean }) {
+function SignalIntelligencePanel({ metrics, accent, reduce, seed }: { metrics: { k: string; v: string }[]; accent: string; reduce: boolean; seed: number }) {
   return (
     <PanelShell title="Signal Intelligence">
       <div className="grid gap-2.5">
@@ -298,7 +298,7 @@ function SignalIntelligencePanel({ metrics, accent, reduce }: { metrics: { k: st
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{m.k}</div>
               <div className="font-mono text-sm">{m.v}</div>
             </div>
-            <Sparkline seed={i + 1} color={accent} animate={!reduce} />
+            <Sparkline seed={seed + i * 37} color={accent} animate={!reduce} />
           </div>
         ))}
       </div>
@@ -445,11 +445,11 @@ function ExplainabilityPanel({ importance }: { importance: { name: string; value
 
 /* --------------------------- CENTRAL VISUALS --------------------------- */
 
-function NeuralVisualization({ accent, reduce }: { accent: string; reduce: boolean }) {
+function NeuralVisualization({ accent, reduce, seed, samples }: { accent: string; reduce: boolean; seed: number; samples?: number[] }) {
   // Deterministic neural nodes
   const nodes = useMemo(() => {
     const arr: { x: number; y: number; r: number }[] = [];
-    let s = 42;
+    let s = Math.abs(Math.trunc(seed)) % 233280 || 42;
     const rnd = () => {
       s = (s * 9301 + 49297) % 233280;
       return s / 233280;
@@ -464,7 +464,7 @@ function NeuralVisualization({ accent, reduce }: { accent: string; reduce: boole
       });
     }
     return arr;
-  }, []);
+  }, [seed]);
   const edges = useMemo(() => {
     const out: [number, number][] = [];
     for (let i = 0; i < nodes.length; i++) {
@@ -585,7 +585,7 @@ function NeuralVisualization({ accent, reduce }: { accent: string; reduce: boole
 
       {/* EEG overlay along the equator */}
       <g transform="translate(40 340)" opacity="0.45">
-        <EEGPath color={accent} />
+        <EEGPath color={accent} seed={seed} samples={samples} />
       </g>
 
       {/* AI VISUALIZATION label */}
@@ -596,8 +596,8 @@ function NeuralVisualization({ accent, reduce }: { accent: string; reduce: boole
   );
 }
 
-function EEGPath({ color }: { color: string }) {
-  const pts = useMemo(() => generateWaveform(3, 80), []);
+function EEGPath({ color, seed, samples }: { color: string; seed: number; samples?: number[] }) {
+  const pts = useMemo(() => (samples?.length ? resample(samples, 80) : generateWaveform(seed, 80)), [samples, seed]);
   const w = 320,
     h = 30;
   const max = Math.max(...pts.map(Math.abs)) || 1;
@@ -609,6 +609,20 @@ function EEGPath({ color }: { color: string }) {
     d += `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)} `;
   });
   return <path d={d} fill="none" stroke={color} strokeWidth={0.9} />;
+}
+
+function resample(values: number[], points: number) {
+  if (values.length === points) return values;
+  if (values.length < 2) return values;
+  const out: number[] = [];
+  for (let i = 0; i < points; i++) {
+    const pos = (i / (points - 1)) * (values.length - 1);
+    const left = Math.floor(pos);
+    const right = Math.min(values.length - 1, left + 1);
+    const mix = pos - left;
+    out.push(values[left] * (1 - mix) + values[right] * mix);
+  }
+  return out;
 }
 
 function FeatureMap({
