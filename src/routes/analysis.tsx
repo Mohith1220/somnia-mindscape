@@ -1,16 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { Upload, FileText, X, CheckCircle2, Sliders, Play, RotateCcw, Info, Beaker } from "lucide-react";
+import { useRef, useState } from "react";
+import { Upload, FileText, X, CheckCircle2, Sliders, Play, RotateCcw, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProcessingOverlay } from "@/components/processing-overlay";
 import { useAnalysisStore } from "@/lib/analysis-store";
-import { DEMO_SCENARIOS, type ConditionKey } from "@/lib/demo-data";
+import { analyzeCSVFile, buildResultFromFeatures } from "@/lib/analyze-csv";
+import type { AnalysisResult } from "@/lib/demo-data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/analysis")({
@@ -33,41 +33,65 @@ const FEATURE_INFO = {
 
 function AnalysisStudio() {
   const navigate = useNavigate();
-  const { runAnalysis, selectedDemo, setDemo } = useAnalysisStore();
+  const { setResult } = useAnalysisStore();
   const [processing, setProcessing] = useState(false);
   const [fileLoaded, setFileLoaded] = useState<{ name: string; size: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [pendingResult, setPendingResult] = useState<AnalysisResult | null>(null);
+  const [parsing, setParsing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [features, setFeatures] = useState({ mean: "", std: "", variance: "", min: "", max: "" });
 
-  const loadDemoFile = () => {
-    const s = DEMO_SCENARIOS[selectedDemo];
-    const slug = selectedDemo === "apnea" ? "sleep_apnea" : selectedDemo;
-    setFileLoaded({ name: `demo_${slug}_signal.csv`, size: "2.4 MB" });
-    toast.success(`Demo ${s.conditionLabel} sample loaded`);
-  };
-
-  const loadDemoValues = () => {
-    const s = DEMO_SCENARIOS[selectedDemo];
-    setFeatures({
-      mean: s.features.mean.toString(),
-      std: s.features.std.toString(),
-      variance: s.features.variance.toString(),
-      min: s.features.min.toString(),
-      max: s.features.max.toString(),
-    });
-    toast.success(`Loaded ${s.conditionLabel} demo values`);
+  const handleFile = async (file: File) => {
+    setParsing(true);
+    try {
+      const result = await analyzeCSVFile(file);
+      setPendingResult(result);
+      setFileLoaded({ name: file.name, size: `${(file.size / (1024 * 1024)).toFixed(2)} MB` });
+      toast.success("File validated — ready for analysis");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to read this file.";
+      toast.error(message);
+      setFileLoaded(null);
+      setPendingResult(null);
+    } finally {
+      setParsing(false);
+    }
   };
 
   const resetFeatures = () => setFeatures({ mean: "", std: "", variance: "", min: "", max: "" });
 
-  const startAnalysis = (condition?: ConditionKey) => {
-    if (condition) setDemo(condition);
+  const clearFile = () => {
+    setFileLoaded(null);
+    setPendingResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const startAnalysis = () => {
+    if (fileLoaded && pendingResult) {
+      setProcessing(true);
+      return;
+    }
+    // Manual tab: build result from entered features
+    const parsed = {
+      mean: parseFloat(features.mean),
+      std: parseFloat(features.std),
+      variance: parseFloat(features.variance),
+      min: parseFloat(features.min),
+      max: parseFloat(features.max),
+    };
+    if (Object.values(parsed).some((v) => !Number.isFinite(v))) {
+      toast.error("Please enter valid numeric values for all features.");
+      return;
+    }
+    const result = buildResultFromFeatures(parsed, "manual-entry");
+    setPendingResult(result);
     setProcessing(true);
   };
 
   const onProcessingComplete = () => {
-    runAnalysis();
+    if (pendingResult) setResult(pendingResult);
     setProcessing(false);
     navigate({ to: "/results" });
   };
@@ -76,7 +100,7 @@ function AnalysisStudio() {
     e.preventDefault();
     setDragOver(false);
     const f = e.dataTransfer.files?.[0];
-    if (f) setFileLoaded({ name: f.name, size: `${(f.size / (1024 * 1024)).toFixed(2)} MB` });
+    if (f) handleFile(f);
   };
 
   return (
@@ -86,7 +110,7 @@ function AnalysisStudio() {
           <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Neural Analysis</div>
           <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">AI Analysis Studio</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Analyze EEG-derived neural signal patterns using our machine learning classification pipeline.
+            Upload your EEG dataset to run intelligent pattern analysis. Every upload is analyzed independently and produces its own report.
           </p>
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-2xl">
             {[
@@ -105,31 +129,7 @@ function AnalysisStudio() {
           </div>
         </motion.div>
 
-        {/* Demo scenario selector */}
-        <div className="mt-8 glass-card rounded-2xl p-4 flex flex-wrap items-center gap-4 justify-between">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan">
-              <Beaker className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="text-sm font-medium">Demo Mode</div>
-              <div className="text-xs text-muted-foreground">Preview a deterministic scenario for demonstration.</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Select value={selectedDemo} onValueChange={(v) => setDemo(v as ConditionKey)}>
-              <SelectTrigger className="w-52 bg-surface"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="normal">Normal Sample</SelectItem>
-                <SelectItem value="insomnia">Insomnia Sample</SelectItem>
-                <SelectItem value="apnea">Sleep Apnea Sample</SelectItem>
-                <SelectItem value="seizure">Seizure Sample</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <Tabs defaultValue="upload" className="mt-6">
+        <Tabs defaultValue="upload" className="mt-8">
           <TabsList className="bg-surface/70 border border-border">
             <TabsTrigger value="upload" className="data-[state=active]:bg-accent-cyan/10 data-[state=active]:text-accent-cyan">
               <Upload className="h-3.5 w-3.5 mr-2" /> EEG Data Upload
@@ -142,6 +142,16 @@ function AnalysisStudio() {
           {/* UPLOAD TAB */}
           <TabsContent value="upload" className="mt-6">
             <div className="glass-card rounded-2xl p-6 sm:p-8">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.txt,text/csv,text/plain"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                }}
+              />
               {!fileLoaded ? (
                 <div
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -156,11 +166,14 @@ function AnalysisStudio() {
                   </div>
                   <div className="mt-4 font-semibold text-lg">Upload EEG Data</div>
                   <p className="mt-1 text-sm text-muted-foreground">Drag and drop your EEG dataset or browse your device.</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Supported: CSV, EDF, TXT · Max 50MB</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Supported: CSV, TXT · numeric samples · Max 50MB</p>
                   <div className="mt-6 flex justify-center gap-3">
-                    <Button variant="outline" onClick={() => setFileLoaded({ name: "eeg_session_04.csv", size: "3.1 MB" })}>Browse File</Button>
-                    <Button variant="ghost" onClick={loadDemoFile} className="text-accent-cyan hover:text-accent-cyan hover:bg-accent-cyan/10">
-                      Use Demo EEG Sample
+                    <Button
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={parsing}
+                    >
+                      {parsing ? "Reading file…" : "Choose CSV File"}
                     </Button>
                   </div>
                 </div>
@@ -182,12 +195,12 @@ function AnalysisStudio() {
                         <div className="h-full w-full bg-gradient-to-r from-accent-cyan to-accent-blue" />
                       </div>
                     </div>
-                    <button aria-label="Remove file" onClick={() => setFileLoaded(null)} className="grid h-8 w-8 place-items-center rounded-md hover:bg-surface-2 text-muted-foreground">
+                    <button aria-label="Remove file" onClick={clearFile} className="grid h-8 w-8 place-items-center rounded-md hover:bg-surface-2 text-muted-foreground">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
                   <div className="mt-6 flex justify-end">
-                    <Button size="lg" className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow" onClick={() => startAnalysis()}>
+                    <Button size="lg" className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow" onClick={startAnalysis}>
                       <Play className="h-4 w-4 mr-2" /> Begin AI Analysis
                     </Button>
                   </div>
@@ -225,20 +238,16 @@ function AnalysisStudio() {
 
               <div className="mt-8 flex flex-wrap gap-3 justify-between items-center">
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={loadDemoValues}><Beaker className="h-4 w-4 mr-2" /> Load Demo Values</Button>
                   <Button variant="ghost" onClick={resetFeatures}><RotateCcw className="h-4 w-4 mr-2" /> Reset</Button>
                 </div>
                 <Button
                   size="lg"
                   className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow"
-                  onClick={() => startAnalysis()}
+                  onClick={startAnalysis}
                   disabled={Object.values(features).some((v) => v === "")}
                 >
                   <Play className="h-4 w-4 mr-2" /> Analyze Features
                 </Button>
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground">
-                Tip: Use <span className="text-accent-cyan">Load Demo Values</span> to populate deterministic feature values from the selected demo scenario.
               </div>
             </div>
           </TabsContent>
@@ -249,7 +258,11 @@ function AnalysisStudio() {
         </div>
       </div>
 
-      <ProcessingOverlay open={processing} onComplete={onProcessingComplete} seed={DEMO_SCENARIOS[selectedDemo].waveformSeed} />
+      <ProcessingOverlay
+        open={processing}
+        onComplete={onProcessingComplete}
+        seed={pendingResult?.waveformSeed ?? 1}
+      />
     </TooltipProvider>
   );
 }
