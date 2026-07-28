@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAnalysisStore } from "@/lib/analysis-store";
-import { CONDITION_META, DEMO_SCENARIOS, generateWaveform, RISK_COLOR } from "@/lib/demo-data";
+import { CONDITION_META, generateWaveform } from "@/lib/demo-data";
 import { EEGWave } from "@/components/eeg-wave";
 import { CommandCenter } from "@/components/command-center";
 import {
@@ -29,36 +29,34 @@ export const Route = createFileRoute("/results")({
 
 function ResultsPage() {
   const navigate = useNavigate();
-  const { currentResult, runAnalysis, reset } = useAnalysisStore();
-  // Fallback to demo apnea if navigating directly
-  const [result, setResult] = useState(currentResult ?? DEMO_SCENARIOS.apnea);
-  const isDemo = !currentResult;
+  const { currentResult, reset } = useAnalysisStore();
   const [displayDate, setDisplayDate] = useState<string>("");
 
+  // Redirect back to /analysis if no analysis has been run yet.
   useEffect(() => {
-    if (currentResult) setResult(currentResult);
-    else setResult(DEMO_SCENARIOS.apnea);
+    if (!currentResult) navigate({ to: "/analysis" });
+  }, [currentResult, navigate]);
+
+  useEffect(() => {
+    if (currentResult) setDisplayDate(new Date(currentResult.timestamp).toLocaleString());
   }, [currentResult]);
 
-  // Only render the human-formatted date on the client to avoid SSR hydration
-  // mismatches (locale/timezone/Date.now drift between server and browser).
-  useEffect(() => {
-    setDisplayDate(new Date(result.timestamp).toLocaleString());
-  }, [result.timestamp]);
+  const result = currentResult;
 
-  const conditionMeta = CONDITION_META[result.condition];
 
-  const probData = useMemo(() => [
-    { name: "Normal", key: "normal", value: result.probabilities.normal, color: "var(--status-normal)" },
-    { name: "Insomnia", key: "insomnia", value: result.probabilities.insomnia, color: "var(--status-moderate)" },
-    { name: "Sleep Apnea", key: "apnea", value: result.probabilities.apnea, color: "var(--status-high)" },
-    { name: "Seizure Activity", key: "seizure", value: result.probabilities.seizure, color: "var(--status-critical)" },
-  ], [result]);
+
 
   const [zoom, setZoom] = useState(1);
   const [signalMode, setSignalMode] = useState<"raw" | "processed" | "feature">("raw");
 
-  const waveform = useMemo(() => generateWaveform(result.waveformSeed, 400), [result.waveformSeed]);
+  const waveform = useMemo(
+    () => (result ? generateWaveform(result.waveformSeed, 400) : []),
+    [result],
+  );
+
+  if (!result) return null;
+
+  const conditionMeta = CONDITION_META[result.condition];
 
   const handleNew = () => {
     reset();
@@ -74,12 +72,6 @@ function ResultsPage() {
     import("@/lib/report").then(({ openReport }) => {
       openReport(result, true);
     });
-  };
-
-  // Cycle demo results quickly (optional convenience for demos)
-  const cycleDemo = (k: typeof result.condition) => {
-    const r = runAnalysis(k);
-    setResult(r);
   };
 
   return (
@@ -99,11 +91,6 @@ function ResultsPage() {
             <span className="inline-flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-status-normal animate-pulse" /> Analysis Complete
             </span>
-            {isDemo && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-cyan/40 bg-accent-cyan/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-accent-cyan">
-                Demo Analysis
-              </span>
-            )}
           </div>
         </motion.div>
         <div className="flex flex-wrap gap-2 print:hidden">
@@ -113,33 +100,7 @@ function ResultsPage() {
         </div>
       </div>
 
-      {/* Demo scenario explorer */}
-      <div className="mt-6 print:hidden glass-card rounded-2xl p-3 sm:p-4 flex flex-wrap items-center gap-3 justify-between">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan">Demo Scenario Explorer</span>
-          <span className="text-muted-foreground hidden sm:inline">— switch context to see the report update instantly.</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-surface/60 p-1">
-          {(["normal", "insomnia", "apnea", "seizure"] as const).map((k) => {
-            const active = result.condition === k;
-            const c = CONDITION_META[k].color;
-            return (
-              <button
-                key={k}
-                onClick={() => cycleDemo(k)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                  active
-                    ? "bg-accent-cyan/15 text-accent-cyan"
-                    : "text-muted-foreground hover:text-foreground hover:bg-surface-2"
-                }`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: c }} />
-                {CONDITION_META[k].label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+
 
 
       {/* Neural Intelligence Command Center */}
@@ -193,7 +154,7 @@ function ResultsPage() {
             </div>
           ))}
         </div>
-        <div className="mt-3 text-[10px] text-muted-foreground italic">Reference ranges shown are illustrative demo values.</div>
+        <div className="mt-3 text-[10px] text-muted-foreground italic">Reference ranges shown are illustrative.</div>
       </motion.div>
 
       {/* Explainable AI */}
@@ -257,7 +218,7 @@ function ResultsPage() {
             <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Wellness Indicator</div>
             <h2 className="mt-1 text-xl font-semibold">Sleep Intelligence Score</h2>
             <p className="mt-1 text-sm text-muted-foreground max-w-md">
-              An illustrative demo indicator derived from the classification result.
+              An illustrative wellness indicator derived from the classification result.
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2 max-w-md">
               <MiniStat label="Signal Stability" value={result.signalStability} />
@@ -272,7 +233,7 @@ function ResultsPage() {
               <span className="text-muted-foreground"> / 100</span>
             </div>
             <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">Status: {statusForScore(result.intelligenceScore)}</div>
-            <div className="mt-2 text-[10px] text-muted-foreground italic">Demo Wellness Indicator — illustrative only</div>
+            <div className="mt-2 text-[10px] text-muted-foreground italic">Illustrative wellness indicator</div>
           </div>
         </div>
       </motion.div>

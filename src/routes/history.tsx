@@ -5,7 +5,7 @@ import { Search, ArrowUpDown, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CONDITION_META, HISTORY_RECORDS, RISK_COLOR, type ConditionKey, type RiskLevel } from "@/lib/demo-data";
+import { CONDITION_META, DEMO_SCENARIOS, HISTORY_RECORDS, RISK_COLOR, type ConditionKey, type RiskLevel } from "@/lib/demo-data";
 import { useAnalysisStore } from "@/lib/analysis-store";
 
 export const Route = createFileRoute("/history")({
@@ -24,7 +24,7 @@ function HistoryPage() {
   const [riskFilter, setRiskFilter] = useState<"all" | RiskLevel>("all");
   const [sortAsc, setSortAsc] = useState(false);
   const navigate = useNavigate();
-  const runAnalysis = useAnalysisStore((s) => s.runAnalysis);
+  const setResult = useAnalysisStore((s) => s.setResult);
 
   const rows = useMemo(() => {
     let r = [...HISTORY_RECORDS];
@@ -35,8 +35,15 @@ function HistoryPage() {
     return r;
   }, [q, condFilter, riskFilter, sortAsc]);
 
-  const openRecord = (condition: ConditionKey) => {
-    runAnalysis(condition);
+  const openRecord = (record: (typeof HISTORY_RECORDS)[number]) => {
+    const template = DEMO_SCENARIOS[record.condition];
+    setResult({
+      ...template,
+      id: record.id,
+      timestamp: new Date(record.date).toISOString(),
+      confidence: record.confidence,
+      risk: record.risk,
+    });
     navigate({ to: "/results" });
   };
 
@@ -135,7 +142,7 @@ function HistoryPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <Button size="sm" variant="outline" onClick={() => openRecord(r.condition)}>
+                      <Button size="sm" variant="outline" onClick={() => openRecord(r)}>
                         <Eye className="h-3.5 w-3.5 mr-1.5" /> View
                       </Button>
                     </td>
