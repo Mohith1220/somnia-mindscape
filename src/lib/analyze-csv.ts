@@ -523,6 +523,7 @@ export async function analyzeCSVFile(file: File): Promise<AnalysisResult> {
     throw new Error("The uploaded file does not contain enough numeric samples to analyze.");
   }
   const features = computeFeatures(values);
-  const fingerprint = `${file.name}|${file.size}|${file.lastModified}|${values.length}|${hashString(text)}`;
-  return buildResultFromFeatures(features, file.name, fingerprint, values);
+  const valueFingerprint = values.map((v) => Number(v.toPrecision(12))).join(",");
+  const fingerprint = `${values.length}|${hashString(valueFingerprint)}`;
+  return buildResultFromFeatures(features, "uploaded-csv", fingerprint, values);
 }
