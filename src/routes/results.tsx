@@ -98,11 +98,6 @@ function ResultsPage() {
             <span className="inline-flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-status-normal animate-pulse" /> Analysis Complete
             </span>
-            {isDemo && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-cyan/40 bg-accent-cyan/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-accent-cyan">
-                Demo Analysis
-              </span>
-            )}
           </div>
         </motion.div>
         <div className="flex flex-wrap gap-2 print:hidden">
@@ -112,33 +107,7 @@ function ResultsPage() {
         </div>
       </div>
 
-      {/* Demo scenario explorer */}
-      <div className="mt-6 print:hidden glass-card rounded-2xl p-3 sm:p-4 flex flex-wrap items-center gap-3 justify-between">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan">Demo Scenario Explorer</span>
-          <span className="text-muted-foreground hidden sm:inline">— switch context to see the report update instantly.</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-surface/60 p-1">
-          {(["normal", "insomnia", "apnea", "seizure"] as const).map((k) => {
-            const active = result.condition === k;
-            const c = CONDITION_META[k].color;
-            return (
-              <button
-                key={k}
-                onClick={() => cycleDemo(k)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                  active
-                    ? "bg-accent-cyan/15 text-accent-cyan"
-                    : "text-muted-foreground hover:text-foreground hover:bg-surface-2"
-                }`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: c }} />
-                {CONDITION_META[k].label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+
 
 
       {/* Neural Intelligence Command Center */}
