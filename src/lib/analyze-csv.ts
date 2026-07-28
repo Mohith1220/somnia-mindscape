@@ -11,17 +11,23 @@ export function parseCSVNumbers(text: string): number[] {
   const nums: number[] = [];
   const numberPattern = /[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
   const rows = text.split(/\r?\n/);
+  const numericRows: number[][] = [];
 
   for (const row of rows) {
     const matches = row.match(numberPattern);
     if (!matches?.length) continue;
     const parsed = matches.map(Number).filter(Number.isFinite);
     if (!parsed.length) continue;
-    // For common time,value CSVs, analyze the signal column rather than mixing timestamps into the EEG values.
-    nums.push(parsed.length > 1 ? parsed[parsed.length - 1] : parsed[0]);
+    numericRows.push(parsed);
   }
 
-  if (nums.length) return nums;
+  if (numericRows.length > 1) {
+    const sameColumnCount = numericRows.every((row) => row.length === numericRows[0].length);
+    const useLastColumn = sameColumnCount && numericRows[0].length > 1;
+    return numericRows.map((row) => (useLastColumn ? row[row.length - 1] : row[0]));
+  }
+
+  if (numericRows.length === 1) return numericRows[0];
 
   for (const match of text.matchAll(numberPattern)) {
     const n = Number(match[0]);

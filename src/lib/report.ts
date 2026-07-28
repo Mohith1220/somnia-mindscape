@@ -173,6 +173,20 @@ export function buildReportHTML(r: AnalysisResult, opts: { print?: boolean } = {
     </section>
 
     <section>
+      <h2>Signal Profile</h2>
+      <div class="card">
+        <dl class="kv">
+          <dt>Samples Processed</dt><dd>${r.signalProfile?.sampleCount ?? r.signalSamples?.length ?? 0}</dd>
+          <dt>Abnormal Peaks</dt><dd>${r.signalProfile?.peakCount ?? 0}</dd>
+          <dt>Zero Crossings</dt><dd>${r.signalProfile?.zeroCrossings ?? 0}</dd>
+          <dt>Peak-to-Peak</dt><dd>${(r.signalProfile?.peakToPeak ?? (r.features.max - r.features.min)).toFixed(1)}</dd>
+          <dt>Volatility</dt><dd>${(r.signalProfile?.volatility ?? 0).toFixed(2)}</dd>
+          <dt>Instability</dt><dd>${r.signalProfile?.instability ?? 0}/100</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section>
       <h2>Feature Contribution</h2>
       <div class="card">
         <table>
