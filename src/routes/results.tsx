@@ -240,7 +240,7 @@ function ResultsPage() {
               <span className="text-muted-foreground"> / 100</span>
             </div>
             <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">Status: {statusForScore(result.intelligenceScore)}</div>
-            <div className="mt-2 text-[10px] text-muted-foreground italic">Demo Wellness Indicator — illustrative only</div>
+            <div className="mt-2 text-[10px] text-muted-foreground italic">Illustrative wellness indicator</div>
           </div>
         </div>
       </motion.div>
