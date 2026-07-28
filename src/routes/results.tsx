@@ -161,7 +161,7 @@ function ResultsPage() {
             </div>
           ))}
         </div>
-        <div className="mt-3 text-[10px] text-muted-foreground italic">Reference ranges shown are illustrative demo values.</div>
+        <div className="mt-3 text-[10px] text-muted-foreground italic">Reference ranges shown are illustrative.</div>
       </motion.div>
 
       {/* Explainable AI */}
