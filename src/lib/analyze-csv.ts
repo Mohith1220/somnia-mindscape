@@ -452,7 +452,6 @@ export function buildResultFromFeatures(
   const condition = classify(features, signalProfile);
   const confidence = computeConfidence(condition, features, signalProfile, seedBase);
   const probabilities = computeProbabilities(features, condition, confidence, seedBase);
-  const confidence = probabilities[condition];
   const featureImportance = computeFeatureImportance(features, signalProfile, condition, seedBase);
   const riskIndex = computeRiskIndex(condition, features, confidence, seedBase);
   const risk = riskLevelFromIndex(riskIndex);
