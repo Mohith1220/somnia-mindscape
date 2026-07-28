@@ -225,7 +225,7 @@ function ResultsPage() {
             <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Wellness Indicator</div>
             <h2 className="mt-1 text-xl font-semibold">Sleep Intelligence Score</h2>
             <p className="mt-1 text-sm text-muted-foreground max-w-md">
-              An illustrative demo indicator derived from the classification result.
+              An illustrative wellness indicator derived from the classification result.
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2 max-w-md">
               <MiniStat label="Signal Stability" value={result.signalStability} />
