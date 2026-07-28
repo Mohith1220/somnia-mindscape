@@ -85,7 +85,8 @@ function AnalysisStudio() {
       toast.error("Please enter valid numeric values for all features.");
       return;
     }
-    const result = buildResultFromFeatures(parsed, "manual-entry");
+    const fingerprint = `${parsed.mean}|${parsed.std}|${parsed.variance}|${parsed.min}|${parsed.max}|${Date.now()}`;
+    const result = buildResultFromFeatures(parsed, "manual-entry", fingerprint);
     setPendingResult(result);
     setProcessing(true);
   };

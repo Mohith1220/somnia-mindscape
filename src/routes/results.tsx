@@ -171,7 +171,7 @@ function ResultsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={result.featureImportance} layout="vertical" margin={{ left: 20, right: 20 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" domain={[0, 40]} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} unit="%" />
+                <XAxis type="number" domain={[0, 60]} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} unit="%" />
                 <YAxis dataKey="name" type="category" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} width={140} />
                 <RTooltip
                   contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
