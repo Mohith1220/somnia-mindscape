@@ -3,6 +3,7 @@ import { generateWaveform } from "@/lib/demo-data";
 
 interface Props {
   seed?: number;
+  samples?: number[];
   height?: number;
   className?: string;
   color?: string;
@@ -13,6 +14,7 @@ interface Props {
 
 export function EEGWave({
   seed = 3,
+  samples,
   height = 120,
   className,
   color = "var(--accent-cyan)",
@@ -21,7 +23,7 @@ export function EEGWave({
   fill = false,
 }: Props) {
   const path = useMemo(() => {
-    const pts = generateWaveform(seed, 300);
+    const pts = samples?.length ? resample(samples, 300) : generateWaveform(seed, 300);
     const w = 1200;
     const h = height;
     const max = Math.max(...pts.map(Math.abs)) || 1;
@@ -33,7 +35,7 @@ export function EEGWave({
       d += `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)} `;
     });
     return d;
-  }, [seed, height]);
+  }, [seed, samples, height]);
 
   return (
     <div className={className} style={{ height, overflow: "hidden", position: "relative" }}>
@@ -68,4 +70,18 @@ export function EEGWave({
       </svg>
     </div>
   );
+}
+
+function resample(values: number[], points: number) {
+  if (values.length === points) return values;
+  if (values.length < 2) return values;
+  const out: number[] = [];
+  for (let i = 0; i < points; i++) {
+    const pos = (i / (points - 1)) * (values.length - 1);
+    const left = Math.floor(pos);
+    const right = Math.min(values.length - 1, left + 1);
+    const mix = pos - left;
+    out.push(values[left] * (1 - mix) + values[right] * mix);
+  }
+  return out;
 }

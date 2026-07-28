@@ -33,6 +33,16 @@ export interface AnalysisResult {
   insights: { pattern: string; risk: string; nextStep: string };
   recommendations: string[];
   waveformSeed: number;
+  signalSamples: number[];
+  signalProfile: {
+    sampleCount: number;
+    peakCount: number;
+    zeroCrossings: number;
+    peakToPeak: number;
+    volatility: number;
+    instability: number;
+    asymmetry: number;
+  };
 }
 
 export const CONDITION_META: Record<ConditionKey, { label: string; color: string; description: string }> = {
@@ -55,147 +65,6 @@ export const CONDITION_META: Record<ConditionKey, { label: string; color: string
     label: "Seizure Activity",
     color: "var(--status-critical)",
     description: "Patterns potentially associated with abnormal neurological signal activity.",
-  },
-};
-
-const DEMO_TIMESTAMP = "2026-07-18T09:00:00.000Z";
-
-export const DEMO_SCENARIOS: Record<ConditionKey, AnalysisResult> = {
-  normal: {
-    id: "SA-2026-0718-100",
-    timestamp: DEMO_TIMESTAMP,
-    condition: "normal",
-    conditionLabel: "Normal Sleep",
-    confidence: 96.1,
-    risk: "Low",
-    probabilities: { normal: 92.4, insomnia: 4.8, apnea: 2.1, seizure: 0.7 },
-    features: { mean: 0.021, std: 12.34, variance: 152.3, min: -48.6, max: 51.2 },
-    featureImportance: [
-      { name: "Signal Variance", value: 28 },
-      { name: "Maximum Amplitude", value: 22 },
-      { name: "Standard Deviation", value: 20 },
-      { name: "Minimum Amplitude", value: 18 },
-      { name: "Mean", value: 12 },
-    ],
-    intelligenceScore: 88,
-    signalStability: 93,
-    patternConsistency: 90,
-    riskIndex: 12,
-    insights: {
-      pattern: "The analyzed signal exhibits stable oscillatory behavior consistent with restful neural activity.",
-      risk: "The model did not identify strong markers of the screened sleep or neurological abnormalities.",
-      nextStep: "Continue maintaining healthy sleep habits and periodic wellness screening.",
-    },
-    recommendations: [
-      "Maintain consistent sleep and wake times",
-      "Continue balanced physical activity",
-      "Limit stimulants before bedtime",
-      "Prioritize 7–9 hours of nightly rest",
-      "Schedule periodic wellness checkups",
-    ],
-    waveformSeed: 1,
-  },
-  insomnia: {
-    id: "SA-2026-0718-101",
-    timestamp: DEMO_TIMESTAMP,
-    condition: "insomnia",
-    conditionLabel: "Insomnia",
-    confidence: 88.7,
-    risk: "Medium",
-    probabilities: { normal: 6.4, insomnia: 88.7, apnea: 3.2, seizure: 1.7 },
-    features: { mean: 0.084, std: 18.72, variance: 350.4, min: -62.1, max: 68.9 },
-    featureImportance: [
-      { name: "Standard Deviation", value: 30 },
-      { name: "Signal Variance", value: 26 },
-      { name: "Maximum Amplitude", value: 20 },
-      { name: "Minimum Amplitude", value: 14 },
-      { name: "Mean", value: 10 },
-    ],
-    intelligenceScore: 62,
-    signalStability: 68,
-    patternConsistency: 71,
-    riskIndex: 42,
-    insights: {
-      pattern: "The signal shows elevated variability consistent with fragmented sleep patterns.",
-      risk: "The model identified patterns associated with Insomnia with moderate prediction confidence.",
-      nextStep: "Consider discussing sleep hygiene and possible evaluation with a healthcare professional.",
-    },
-    recommendations: [
-      "Establish a consistent bedtime routine",
-      "Reduce screen exposure before sleep",
-      "Limit caffeine after mid-afternoon",
-      "Try relaxation or breathing exercises",
-      "Consult a sleep specialist if symptoms persist",
-    ],
-    waveformSeed: 2,
-  },
-  apnea: {
-    id: "SA-2026-0718-001",
-    timestamp: DEMO_TIMESTAMP,
-    condition: "apnea",
-    conditionLabel: "Sleep Apnea",
-    confidence: 91.4,
-    risk: "Moderate",
-    probabilities: { normal: 3.2, insomnia: 4.1, apnea: 91.4, seizure: 1.3 },
-    features: { mean: 0.42, std: 24.60, variance: 605.7, min: -78.3, max: 82.9 },
-    featureImportance: [
-      { name: "Signal Variance", value: 31 },
-      { name: "Maximum Amplitude", value: 24 },
-      { name: "Standard Deviation", value: 21 },
-      { name: "Minimum Amplitude", value: 15 },
-      { name: "Mean", value: 9 },
-    ],
-    intelligenceScore: 68,
-    signalStability: 82,
-    patternConsistency: 74,
-    riskIndex: 28,
-    insights: {
-      pattern: "The analyzed signal demonstrates characteristics associated with disrupted sleep stability.",
-      risk: "The model identified patterns associated with Sleep Apnea with high prediction confidence.",
-      nextStep: "Consider discussing this screening result with a qualified healthcare or sleep specialist for appropriate clinical evaluation.",
-    },
-    recommendations: [
-      "Maintain healthy sleep habits",
-      "Consider side sleeping when appropriate",
-      "Maintain a healthy lifestyle and weight",
-      "Avoid sleep deprivation",
-      "Consider professional sleep evaluation",
-    ],
-    waveformSeed: 3,
-  },
-  seizure: {
-    id: "SA-2026-0718-102",
-    timestamp: DEMO_TIMESTAMP,
-    condition: "seizure",
-    conditionLabel: "Seizure Activity",
-    confidence: 94.8,
-    risk: "Critical",
-    probabilities: { normal: 1.6, insomnia: 1.9, apnea: 1.7, seizure: 94.8 },
-    features: { mean: 0.312, std: 42.18, variance: 1779.2, min: -142.5, max: 156.8 },
-    featureImportance: [
-      { name: "Maximum Amplitude", value: 34 },
-      { name: "Signal Variance", value: 28 },
-      { name: "Minimum Amplitude", value: 18 },
-      { name: "Standard Deviation", value: 14 },
-      { name: "Mean", value: 6 },
-    ],
-    intelligenceScore: 34,
-    signalStability: 41,
-    patternConsistency: 38,
-    riskIndex: 82,
-    insights: {
-      pattern: "The signal exhibits high-amplitude spike-and-wave characteristics associated with abnormal neurological activity.",
-      risk: "The model identified strong patterns associated with Seizure Activity with very high prediction confidence.",
-      nextStep: "Seek prompt evaluation by a qualified neurologist or medical professional.",
-    },
-    recommendations: [
-      "Seek prompt medical consultation",
-      "Avoid activities that could pose risk during unexpected events",
-      "Track symptom occurrence and duration",
-      "Maintain medication compliance if prescribed",
-      "Ensure a supportive care network is aware",
-    ],
-    waveformSeed: 4,
   },
 };
 
@@ -244,6 +113,21 @@ export const RISK_COLOR: Record<RiskLevel, string> = {
   Moderate: "var(--status-high)",
   High: "var(--status-high)",
   Critical: "var(--status-critical)",
+};
+
+export const CONDITION_HEX: Record<ConditionKey, string> = {
+  normal: "#4ade80",
+  insomnia: "#facc15",
+  apnea: "#fb923c",
+  seizure: "#ef4444",
+};
+
+export const RISK_HEX: Record<RiskLevel, string> = {
+  Low: "#4ade80",
+  Medium: "#facc15",
+  Moderate: "#fb923c",
+  High: "#f97316",
+  Critical: "#ef4444",
 };
 
 // Deterministic waveform generator (seeded)

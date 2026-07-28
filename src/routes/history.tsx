@@ -5,7 +5,8 @@ import { Search, ArrowUpDown, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CONDITION_META, DEMO_SCENARIOS, HISTORY_RECORDS, RISK_COLOR, type ConditionKey, type RiskLevel } from "@/lib/demo-data";
+import { buildResultFromFeatures } from "@/lib/analyze-csv";
+import { CONDITION_META, HISTORY_RECORDS, RISK_COLOR, type ConditionKey, type Features, type RiskLevel } from "@/lib/demo-data";
 import { useAnalysisStore } from "@/lib/analysis-store";
 
 export const Route = createFileRoute("/history")({
@@ -36,13 +37,12 @@ function HistoryPage() {
   }, [q, condFilter, riskFilter, sortAsc]);
 
   const openRecord = (record: (typeof HISTORY_RECORDS)[number]) => {
-    const template = DEMO_SCENARIOS[record.condition];
+    const features = historicalFeatures(record);
+    const result = buildResultFromFeatures(features, record.id, `${record.id}|${record.date}|history`, historicalSignal(features, record.condition));
     setResult({
-      ...template,
+      ...result,
       id: record.id,
       timestamp: new Date(record.date).toISOString(),
-      confidence: record.confidence,
-      risk: record.risk,
     });
     navigate({ to: "/results" });
   };
@@ -158,4 +158,28 @@ function HistoryPage() {
       </div>
     </div>
   );
+}
+
+function historicalFeatures(record: (typeof HISTORY_RECORDS)[number]): Features {
+  const n = Number(record.id.replace(/\D/g, "").slice(-3)) || 1;
+  const offset = (n % 17) / 10;
+  const profiles: Record<ConditionKey, Features> = {
+    normal: { mean: 0.15 + offset * 0.08, std: 8.5 + offset, variance: 72 + n % 60, min: -22 - (n % 16), max: 24 + (n % 18) },
+    insomnia: { mean: 1.4 + offset * 0.4, std: 15.5 + (n % 9), variance: 230 + (n % 180), min: -48 - (n % 22), max: 52 + (n % 24) },
+    apnea: { mean: 0.5 + offset * 0.3, std: 24 + (n % 12), variance: 520 + (n % 420), min: -82 - (n % 26), max: 86 + (n % 28) },
+    seizure: { mean: 3 + offset, std: 48 + (n % 24), variance: 2500 + (n % 1600), min: -150 - (n % 36), max: 165 + (n % 42) },
+  };
+  return profiles[record.condition];
+}
+
+function historicalSignal(features: Features, condition: ConditionKey) {
+  const out: number[] = [];
+  const amplitude = Math.max(Math.abs(features.min), Math.abs(features.max), features.std * 2);
+  for (let i = 0; i < 160; i++) {
+    let v = features.mean + Math.sin(i * 0.21) * amplitude * 0.34 + Math.sin(i * 0.73) * features.std * 0.42;
+    if (condition === "apnea" && i % 41 > 31) v += (i % 2 ? -1 : 1) * amplitude * 0.52;
+    if (condition === "seizure" && (i % 37 === 0 || i % 43 === 0)) v += (i % 2 ? -1 : 1) * amplitude * 0.96;
+    out.push(v);
+  }
+  return out;
 }

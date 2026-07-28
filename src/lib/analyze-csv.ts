@@ -1,5 +1,6 @@
 import {
   CONDITION_META,
+  generateWaveform,
   type AnalysisResult,
   type ConditionKey,
   type Features,
@@ -8,11 +9,28 @@ import {
 
 export function parseCSVNumbers(text: string): number[] {
   const nums: number[] = [];
-  // Split on any non-numeric separator: commas, whitespace, semicolons, tabs
-  const tokens = text.split(/[\s,;]+/);
-  for (const tok of tokens) {
-    if (!tok) continue;
-    const n = Number(tok);
+  const numberPattern = /[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi;
+  const rows = text.split(/\r?\n/);
+  const numericRows: number[][] = [];
+
+  for (const row of rows) {
+    const matches = row.match(numberPattern);
+    if (!matches?.length) continue;
+    const parsed = matches.map(Number).filter(Number.isFinite);
+    if (!parsed.length) continue;
+    numericRows.push(parsed);
+  }
+
+  if (numericRows.length > 1) {
+    const sameColumnCount = numericRows.every((row) => row.length === numericRows[0].length);
+    const useLastColumn = sameColumnCount && numericRows[0].length > 1;
+    return numericRows.map((row) => (useLastColumn ? row[row.length - 1] : row[0]));
+  }
+
+  if (numericRows.length === 1) return numericRows[0];
+
+  for (const match of text.matchAll(numberPattern)) {
+    const n = Number(match[0]);
     if (Number.isFinite(n)) nums.push(n);
   }
   return nums;
@@ -39,15 +57,85 @@ export function computeFeatures(values: number[]): Features {
   return { mean, std, variance, min, max };
 }
 
-function classify(features: Features): ConditionKey {
+type SignalProfile = AnalysisResult["signalProfile"];
+
+function median(values: number[]) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function analyzeSignalProfile(values: number[], features: Features): SignalProfile {
+  const centered = values.map((v) => v - features.mean);
+  const diffs = values.slice(1).map((v, i) => Math.abs(v - values[i]));
+  const med = median(values);
+  const mad = median(values.map((v) => Math.abs(v - med))) || features.std * 0.6745 || 1;
+  const robustThreshold = Math.max(features.std * 1.45, mad * 3.4, (features.max - features.min) * 0.18, 8);
+  let peakCount = 0;
+  let zeroCrossings = 0;
+
+  for (let i = 1; i < centered.length; i++) {
+    if ((centered[i - 1] <= 0 && centered[i] > 0) || (centered[i - 1] >= 0 && centered[i] < 0)) {
+      zeroCrossings += 1;
+    }
+  }
+
+  for (let i = 1; i < values.length - 1; i++) {
+    const deviation = Math.abs(values[i] - med);
+    const isLocalHigh = values[i] > values[i - 1] && values[i] >= values[i + 1];
+    const isLocalLow = values[i] < values[i - 1] && values[i] <= values[i + 1];
+    if (deviation >= robustThreshold && (isLocalHigh || isLocalLow)) peakCount += 1;
+  }
+
+  const peakToPeak = features.max - features.min;
+  const volatility = diffs.length ? diffs.reduce((sum, v) => sum + v, 0) / diffs.length : 0;
+  const absMax = Math.max(Math.abs(features.min), Math.abs(features.max), 1);
+  const instability = round0(
+    clamp(
+      normalize(features.variance, 60, 3200) * 36 +
+        normalize(features.std, 6, 65) * 26 +
+        normalize(peakToPeak, 45, 360) * 22 +
+        normalize(volatility, 4, 75) * 10 +
+        normalize((peakCount / Math.max(1, values.length)) * 100, 0, 8) * 6,
+      0,
+      100,
+    ),
+  );
+
+  return {
+    sampleCount: values.length,
+    peakCount,
+    zeroCrossings,
+    peakToPeak,
+    volatility,
+    instability,
+    asymmetry: round1((Math.abs(Math.abs(features.max) - Math.abs(features.min)) / absMax) * 100),
+  };
+}
+
+function classify(features: Features, profile: SignalProfile): ConditionKey {
   const { variance, std, min, max, mean } = features;
   const absMax = Math.max(Math.abs(min), Math.abs(max));
   const peakRange = max - min;
   const meanShift = Math.abs(mean);
+  const peakDensity = (profile.peakCount / Math.max(1, profile.sampleCount)) * 100;
 
-  if (variance >= 1200 || absMax >= 125 || peakRange >= 230) return "seizure";
-  if (variance >= 520 || absMax >= 82 || peakRange >= 150) return "apnea";
-  if (variance >= 220 || std >= 16 || meanShift >= 6) return "insomnia";
+  if (
+    variance >= 2400 ||
+    std >= 54 ||
+    absMax >= 155 ||
+    peakRange >= 300 ||
+    (profile.peakCount >= 2 && absMax >= 135 && variance >= 1300)
+  ) return "seizure";
+
+  if (
+    (profile.peakCount >= 3 && peakRange >= 130 && variance >= 330) ||
+    (profile.peakCount >= 2 && absMax >= 88 && variance >= 500) ||
+    (peakDensity >= 1.2 && peakRange >= 165 && profile.zeroCrossings >= profile.sampleCount * 0.06)
+  ) return "apnea";
+
+  if (variance >= 180 || std >= 13.5 || profile.volatility >= 10 || meanShift >= 5 || peakRange >= 100) return "insomnia";
   return "normal";
 }
 
@@ -102,31 +190,75 @@ function profileDistance(features: Features, profile: Features) {
   );
 }
 
-function computeProbabilities(features: Features, chosen: ConditionKey, seedBase: number) {
+function computeConfidence(condition: ConditionKey, features: Features, profile: SignalProfile, seedBase: number) {
+  const absMax = Math.max(Math.abs(features.min), Math.abs(features.max));
+  const range = features.max - features.min;
+  const noise = (jitter(seedBase, 101, 0.06) - 1) * 100;
+
+  const rawByCondition: Record<ConditionKey, number> = {
+    normal:
+      88 +
+      (1 - normalize(features.variance, 45, 190)) * 3.2 +
+      (1 - normalize(features.std, 5, 14)) * 2.2 +
+      (1 - normalize(range, 40, 100)) * 1.6 +
+      noise,
+    insomnia:
+      72 +
+      normalize(features.variance, 180, 760) * 7.5 +
+      normalize(features.std, 13.5, 30) * 5.2 +
+      normalize(profile.volatility, 9, 36) * 3.8 +
+      (1 - normalize(profile.peakCount, 2, 8)) * 2.4 +
+      noise,
+    apnea:
+      75 +
+      normalize(range, 125, 240) * 7.2 +
+      normalize(features.variance, 330, 1250) * 5.8 +
+      normalize(profile.peakCount, 2, 12) * 4.8 +
+      normalize(absMax, 78, 130) * 2.4 +
+      noise,
+    seizure:
+      80 +
+      normalize(absMax, 115, 230) * 6.5 +
+      normalize(features.variance, 1000, 5200) * 6.2 +
+      normalize(features.std, 34, 82) * 4.1 +
+      normalize(profile.instability, 55, 100) * 2.2 +
+      noise,
+  };
+
+  const bounds: Record<ConditionKey, [number, number]> = {
+    normal: [88, 96],
+    insomnia: [72, 91],
+    apnea: [75, 95],
+    seizure: [80, 98],
+  };
+  const [min, max] = bounds[condition];
+  return round1(clamp(rawByCondition[condition], min, max));
+}
+
+function computeProbabilities(features: Features, chosen: ConditionKey, confidence: number, seedBase: number) {
   const weights: Record<ConditionKey, number> = { normal: 0, insomnia: 0, apnea: 0, seizure: 0 };
 
   (Object.keys(REFERENCE_PROFILE) as ConditionKey[]).forEach((k, i) => {
+    if (k === chosen) return;
     const d = profileDistance(features, REFERENCE_PROFILE[k]);
-    weights[k] = Math.exp(-d * 1.35) * jitter(seedBase, i + 1, 0.11);
+    weights[k] = Math.max(0.001, Math.exp(-d * 1.15) * jitter(seedBase, i + 1, 0.18));
   });
 
-  weights[chosen] *= 1.75;
-  const total = weights.normal + weights.insomnia + weights.apnea + weights.seizure;
-  const scale = 100 / total;
-  const raw = {
-    normal: weights.normal * scale,
-    insomnia: weights.insomnia * scale,
-    apnea: weights.apnea * scale,
-    seizure: weights.seizure * scale,
-  };
+  const total = Object.entries(weights)
+    .filter(([k]) => k !== chosen)
+    .reduce((sum, [, value]) => sum + value, 0);
+  const remainder = round1(100 - confidence);
   const rounded: Record<ConditionKey, number> = {
-    normal: round1(raw.normal),
-    insomnia: round1(raw.insomnia),
-    apnea: round1(raw.apnea),
-    seizure: round1(raw.seizure),
+    normal: chosen === "normal" ? confidence : round1((weights.normal / total) * remainder),
+    insomnia: chosen === "insomnia" ? confidence : round1((weights.insomnia / total) * remainder),
+    apnea: chosen === "apnea" ? confidence : round1((weights.apnea / total) * remainder),
+    seizure: chosen === "seizure" ? confidence : round1((weights.seizure / total) * remainder),
   };
   const drift = 100 - (rounded.normal + rounded.insomnia + rounded.apnea + rounded.seizure);
-  rounded[chosen] = round1(rounded[chosen] + drift);
+  const adjustmentTarget = (Object.keys(rounded) as ConditionKey[])
+    .filter((k) => k !== chosen)
+    .sort((a, b) => rounded[b] - rounded[a])[0];
+  rounded[adjustmentTarget] = round1(Math.max(0, rounded[adjustmentTarget] + drift));
   return rounded;
 }
 
@@ -159,41 +291,76 @@ function riskLevelFromIndex(index: number): RiskLevel {
   return "Low";
 }
 
-function computeFeatureImportance(features: Features, seedBase: number) {
+function computeFeatureImportance(features: Features, profile: SignalProfile, condition: ConditionKey, seedBase: number) {
+  const conditionBoost: Record<ConditionKey, Record<string, number>> = {
+    normal: { Mean: 1.2, "Minimum Amplitude": 1.08, "Signal Variance": 0.95, "Maximum Amplitude": 1.02, "Standard Deviation": 0.98 },
+    insomnia: { "Standard Deviation": 1.32, "Signal Variance": 1.24, Mean: 1.08, "Maximum Amplitude": 0.96, "Minimum Amplitude": 0.94 },
+    apnea: { "Maximum Amplitude": 1.26, "Minimum Amplitude": 1.22, "Signal Variance": 1.18, "Standard Deviation": 1.06, Mean: 0.92 },
+    seizure: { "Maximum Amplitude": 1.34, "Signal Variance": 1.28, "Standard Deviation": 1.18, "Minimum Amplitude": 1.14, Mean: 0.82 },
+  };
   const raw = [
-    { name: "Signal Variance", score: 0.18 + normalize(features.variance, 80, 2000) * 1.4 },
-    { name: "Standard Deviation", score: 0.18 + normalize(features.std, 8, 48) * 1.18 },
-    { name: "Maximum Amplitude", score: 0.18 + normalize(Math.abs(features.max), 35, 165) * 1.08 },
-    { name: "Minimum Amplitude", score: 0.18 + normalize(Math.abs(features.min), 35, 165) * 1.02 },
-    { name: "Mean", score: 0.16 + normalize(Math.abs(features.mean), 0, 14) * 0.78 },
-  ].map((item, i) => ({ ...item, score: item.score * jitter(seedBase, i + 11, 0.09) }));
+    { name: "Signal Variance", score: 0.35 + normalize(features.variance, 45, 3400) * 1.8 + normalize(profile.instability, 0, 100) * 0.35 },
+    { name: "Standard Deviation", score: 0.32 + normalize(features.std, 5, 68) * 1.6 + normalize(profile.volatility, 2, 75) * 0.42 },
+    { name: "Maximum Amplitude", score: 0.3 + normalize(Math.abs(features.max), 18, 220) * 1.65 + normalize(profile.peakCount, 0, 12) * 0.28 },
+    { name: "Minimum Amplitude", score: 0.3 + normalize(Math.abs(features.min), 18, 220) * 1.58 + normalize(profile.asymmetry, 0, 70) * 0.2 },
+    { name: "Mean", score: 0.34 + normalize(Math.abs(features.mean), 0, 16) * 1.45 + (1 - normalize(profile.instability, 10, 85)) * 0.22 },
+  ].map((item, i) => ({
+    ...item,
+    score: item.score * conditionBoost[condition][item.name] * jitter(seedBase, i + 11, 0.22),
+  }));
 
   const total = raw.reduce((sum, item) => sum + item.score, 0);
-  const rounded = raw
-    .map((item) => ({ name: item.name, value: Math.max(5, round0((item.score / total) * 100)) }))
-    .sort((a, b) => b.value - a.value);
-
-  const drift = 100 - rounded.reduce((sum, item) => sum + item.value, 0);
-  rounded[0] = { ...rounded[0], value: clamp(rounded[0].value + drift, 5, 55) };
-  return rounded;
+  const rounded = raw.map((item) => ({ name: item.name, value: Math.max(6, round0((item.score / total) * 100)) }));
+  let drift = 100 - rounded.reduce((sum, item) => sum + item.value, 0);
+  const order = [...rounded].sort((a, b) => b.value - a.value).map((item) => item.name);
+  let cursor = 0;
+  while (drift !== 0 && cursor < 200) {
+    const name = order[cursor % order.length];
+    const item = rounded.find((x) => x.name === name);
+    if (item && (drift > 0 || item.value > 6)) {
+      item.value += drift > 0 ? 1 : -1;
+      drift += drift > 0 ? -1 : 1;
+    }
+    cursor += 1;
+  }
+  return rounded.sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 }
 
 function buildInsights(
   condition: ConditionKey,
   features: Features,
+  profile: SignalProfile,
   confidence: number,
   risk: RiskLevel,
   topFeature: string,
+  seedBase: number,
 ) {
   const label = CONDITION_META[condition].label;
   const range = features.max - features.min;
-  const featurePhrase = `${features.variance.toFixed(1)} variance, ${features.std.toFixed(2)} standard deviation, and ${range.toFixed(1)} peak-to-peak amplitude`;
+  const featurePhrase = `${features.variance.toFixed(1)} variance, ${features.std.toFixed(2)} standard deviation, ${range.toFixed(1)} peak-to-peak amplitude, and ${profile.peakCount} abnormal peak${profile.peakCount === 1 ? "" : "s"}`;
+  const variant = hashString(`${seedBase}:insight`) % 3;
 
-  const patternByCondition: Record<ConditionKey, string> = {
-    normal: `This input produced a comparatively stable signal profile with ${featurePhrase}, which aligns most closely with the normal screening pattern.`,
-    insomnia: `This input shows elevated variability with ${featurePhrase}, a pattern the model associates with fragmented sleep activity.`,
-    apnea: `This input shows stronger amplitude swings and disrupted stability with ${featurePhrase}, aligning most closely with sleep-related breathing disturbance patterns.`,
-    seizure: `This input contains high-intensity excursions with ${featurePhrase}, which the model associates with abnormal neurological signal activity.`,
+  const patternByCondition: Record<ConditionKey, string[]> = {
+    normal: [
+      `Signal stability is within the expected physiological range for this upload: ${featurePhrase}.`,
+      `The uploaded samples form a low-variability trace with ${featurePhrase}, supporting the selected normal screening pattern.`,
+      `This CSV produced a stable neural signal window; measured values show ${featurePhrase}.`,
+    ],
+    insomnia: [
+      `Elevated variance indicates fragmented sleep architecture in this upload, with ${featurePhrase}.`,
+      `The signal window shows irregular dispersion and sleep-pattern fragmentation: ${featurePhrase}.`,
+      `This CSV contains sustained variability rather than isolated extreme spikes, measured as ${featurePhrase}.`,
+    ],
+    apnea: [
+      `Amplitude irregularities may suggest obstructive breathing-event patterns in this upload, with ${featurePhrase}.`,
+      `The model detected repeated high-amplitude disruptions across the signal window: ${featurePhrase}.`,
+      `This CSV shows recurring amplitude changes and elevated instability, summarized by ${featurePhrase}.`,
+    ],
+    seizure: [
+      `Signal complexity indicates neurological abnormalities requiring further assessment, with ${featurePhrase}.`,
+      `The uploaded values include extreme excursions and high instability: ${featurePhrase}.`,
+      `This signal window contains very abnormal spike intensity, summarized as ${featurePhrase}.`,
+    ],
   };
 
   const nextStepByRisk: Record<RiskLevel, string> = {
@@ -205,33 +372,46 @@ function buildInsights(
   };
 
   return {
-    pattern: patternByCondition[condition],
-    risk: `The AI classification selected ${label} at ${confidence.toFixed(1)}% confidence. The strongest model contributor for this case was ${topFeature}.`,
+    pattern: patternByCondition[condition][variant],
+    risk: `The AI classification selected ${label} at ${confidence.toFixed(1)}% confidence, matching the ${label} probability bar. The strongest contributor for this case was ${topFeature}, with an instability index of ${profile.instability}/100.`,
     nextStep: nextStepByRisk[risk],
   };
 }
 
-function buildRecommendations(condition: ConditionKey, risk: RiskLevel, topFeature: string) {
+function pickRotated(items: string[], seedBase: number, salt: number, count: number) {
+  const start = hashString(`${seedBase}:${salt}`) % items.length;
+  return Array.from({ length: Math.min(count, items.length) }, (_, i) => items[(start + i) % items.length]);
+}
+
+function buildRecommendations(condition: ConditionKey, risk: RiskLevel, topFeature: string, features: Features, profile: SignalProfile, seedBase: number) {
   const conditionSpecific: Record<ConditionKey, string[]> = {
     normal: [
-      "Maintain consistent sleep and wake times",
-      "Keep tracking sleep quality if symptoms change",
-      "Limit stimulants late in the day",
+      "Maintain healthy sleep hygiene with consistent sleep and wake times",
+      "Continue regular exercise and daytime light exposure",
+      "Monitor sleep schedule if symptoms or fatigue patterns change",
+      "Keep caffeine and late stimulant intake moderate",
+      "Use this stable signal window as a baseline for future comparison",
     ],
     insomnia: [
-      "Establish a consistent wind-down routine before bedtime",
-      "Reduce screen exposure and stimulating activity before sleep",
-      "Discuss persistent sleep disruption with a qualified professional",
+      "Reduce caffeine, especially later in the day",
+      "Improve sleep hygiene with a predictable wind-down routine",
+      "Consider CBT-I strategies if sleep disruption persists",
+      "Reduce screen exposure and stimulating activity before bedtime",
+      "Track awakenings and sleep latency alongside future screenings",
     ],
     apnea: [
-      "Consider professional sleep evaluation if breathing disruption is suspected",
-      "Avoid sleep deprivation and alcohol close to bedtime",
-      "Track snoring, awakenings, or daytime fatigue patterns",
+      "Recommend a professional sleep study when symptoms match the screening pattern",
+      "Consult a sleep specialist about breathing-related sleep disruption",
+      "Evaluate CPAP suitability with a qualified clinician if clinically indicated",
+      "Track snoring, awakenings, oxygen concerns, or daytime fatigue patterns",
+      "Avoid alcohol and heavy sedatives close to bedtime unless clinically advised",
     ],
     seizure: [
-      "Seek prompt medical consultation for abnormal neurological patterns",
+      "Recommend urgent neurological evaluation for this abnormal signal pattern",
+      "EEG confirmation is advised through qualified clinical testing",
+      "Consult a neurologist immediately if symptoms or events are present",
       "Avoid high-risk activities until reviewed by a qualified professional",
-      "Document any symptoms, timing, and possible triggers",
+      "Document symptoms, timing, and possible triggers for clinical review",
     ],
   };
 
@@ -243,11 +423,12 @@ function buildRecommendations(condition: ConditionKey, risk: RiskLevel, topFeatu
     Critical: "Escalate the result for prompt clinical evaluation",
   };
 
-  return [
-    `Review the ${topFeature.toLowerCase()} contribution in the report`,
-    ...conditionSpecific[condition],
-    riskSpecific[risk],
-  ];
+  const dynamic =
+    profile.peakCount > 0
+      ? `Review ${profile.peakCount} detected abnormal peak${profile.peakCount === 1 ? "" : "s"} and the ${topFeature.toLowerCase()} contribution in the report`
+      : `Review the ${topFeature.toLowerCase()} contribution and variance value of ${features.variance.toFixed(1)} in the report`;
+
+  return [dynamic, ...pickRotated(conditionSpecific[condition], seedBase, 61, 3), riskSpecific[risk]];
 }
 
 function hashString(s: string): number {
@@ -267,21 +448,24 @@ export function buildResultFromFeatures(
   features: Features,
   sourceName: string,
   sourceFingerprint = "",
+  sourceValues?: number[],
 ): AnalysisResult {
-  const condition = classify(features);
   const seedBase = hashString(
     `${sourceName}|${sourceFingerprint}|${features.mean}|${features.std}|${features.variance}|${features.min}|${features.max}`,
   );
-  const probabilities = computeProbabilities(features, condition, seedBase);
-  const confidence = probabilities[condition];
-  const featureImportance = computeFeatureImportance(features, seedBase);
+  const signalSamples = buildSignalSamples(sourceValues, features, seedBase);
+  const signalProfile = analyzeSignalProfile(sourceValues?.length ? sourceValues : signalSamples, features);
+  const condition = classify(features, signalProfile);
+  const confidence = computeConfidence(condition, features, signalProfile, seedBase);
+  const probabilities = computeProbabilities(features, condition, confidence, seedBase);
+  const featureImportance = computeFeatureImportance(features, signalProfile, condition, seedBase);
   const riskIndex = computeRiskIndex(condition, features, confidence, seedBase);
   const risk = riskLevelFromIndex(riskIndex);
   const signalStability = round0(clamp(100 - normalize(features.std, 8, 52) * 58 - normalize(features.variance, 120, 2100) * 22 + (jitter(seedBase, 41, 0.1) - 1) * 40, 18, 98));
   const patternConsistency = round0(clamp(confidence * 0.62 + signalStability * 0.28 + (100 - riskIndex) * 0.1, 15, 98));
   const intelligenceScore = round0(clamp(signalStability * 0.32 + patternConsistency * 0.28 + (100 - riskIndex) * 0.4, 8, 96));
-  const insights = buildInsights(condition, features, confidence, risk, featureImportance[0].name);
-  const recommendations = buildRecommendations(condition, risk, featureImportance[0].name);
+  const insights = buildInsights(condition, features, signalProfile, confidence, risk, featureImportance[0].name, seedBase);
+  const recommendations = buildRecommendations(condition, risk, featureImportance[0].name, features, signalProfile, seedBase);
   const waveformSeed = seedBase * 10 + CONDITION_INDEX[condition];
 
   const now = new Date();
@@ -306,7 +490,30 @@ export function buildResultFromFeatures(
     insights,
     recommendations,
     waveformSeed,
+    signalSamples,
+    signalProfile,
   };
+}
+
+function buildSignalSamples(sourceValues: number[] | undefined, features: Features, seedBase: number, targetPoints = 400) {
+  const source = sourceValues?.filter(Number.isFinite) ?? [];
+  if (source.length >= 2) {
+    if (source.length === targetPoints) return source.map((v) => round1(v));
+    const out: number[] = [];
+    for (let i = 0; i < targetPoints; i++) {
+      const pos = (i / (targetPoints - 1)) * (source.length - 1);
+      const left = Math.floor(pos);
+      const right = Math.min(source.length - 1, left + 1);
+      const mix = pos - left;
+      out.push(round1(source[left] * (1 - mix) + source[right] * mix));
+    }
+    return out;
+  }
+
+  const synthetic = generateWaveform(seedBase, targetPoints);
+  const maxSynthetic = Math.max(...synthetic.map(Math.abs)) || 1;
+  const desiredAbs = Math.max(Math.abs(features.min), Math.abs(features.max), features.std * 2, 1);
+  return synthetic.map((v) => round1(features.mean + (v / maxSynthetic) * desiredAbs));
 }
 
 export async function analyzeCSVFile(file: File): Promise<AnalysisResult> {
@@ -316,6 +523,7 @@ export async function analyzeCSVFile(file: File): Promise<AnalysisResult> {
     throw new Error("The uploaded file does not contain enough numeric samples to analyze.");
   }
   const features = computeFeatures(values);
-  const fingerprint = `${file.size}|${values.length}|${hashString(text)}`;
-  return buildResultFromFeatures(features, file.name, fingerprint);
+  const valueFingerprint = values.map((v) => Number(v.toPrecision(12))).join(",");
+  const fingerprint = `${values.length}|${hashString(valueFingerprint)}`;
+  return buildResultFromFeatures(features, "uploaded-csv", fingerprint, values);
 }

@@ -50,7 +50,7 @@ function ResultsPage() {
   const [signalMode, setSignalMode] = useState<"raw" | "processed" | "feature">("raw");
 
   const waveform = useMemo(
-    () => (result ? generateWaveform(result.waveformSeed, 400) : []),
+    () => (result?.signalSamples?.length ? result.signalSamples : result ? generateWaveform(result.waveformSeed, 400) : []),
     [result],
   );
 
@@ -151,6 +151,19 @@ function ResultsPage() {
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{f.k}</div>
               <div className="mt-1 text-lg font-mono font-semibold">{f.v}</div>
               <div className="mt-0.5 text-[10px] text-muted-foreground">Ref: {f.ref}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 grid gap-3 grid-cols-2 md:grid-cols-4">
+          {[
+            { k: "Samples", v: result.signalProfile.sampleCount.toString() },
+            { k: "Abnormal Peaks", v: result.signalProfile.peakCount.toString() },
+            { k: "Instability", v: `${result.signalProfile.instability}%` },
+            { k: "Peak-to-Peak", v: result.signalProfile.peakToPeak.toFixed(1) },
+          ].map((f) => (
+            <div key={f.k} className="rounded-xl border border-border bg-surface/30 p-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{f.k}</div>
+              <div className="mt-1 text-lg font-mono font-semibold">{f.v}</div>
             </div>
           ))}
         </div>
