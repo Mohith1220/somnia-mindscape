@@ -43,15 +43,8 @@ function ResultsPage() {
 
   const result = currentResult;
 
-  const probData = useMemo(() => {
-    if (!result) return [];
-    return [
-      { name: "Normal", key: "normal", value: result.probabilities.normal, color: "var(--status-normal)" },
-      { name: "Insomnia", key: "insomnia", value: result.probabilities.insomnia, color: "var(--status-moderate)" },
-      { name: "Sleep Apnea", key: "apnea", value: result.probabilities.apnea, color: "var(--status-high)" },
-      { name: "Seizure Activity", key: "seizure", value: result.probabilities.seizure, color: "var(--status-critical)" },
-    ];
-  }, [result]);
+
+
 
   const [zoom, setZoom] = useState(1);
   const [signalMode, setSignalMode] = useState<"raw" | "processed" | "feature">("raw");
