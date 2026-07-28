@@ -26,9 +26,9 @@ export const useAnalysisStore = create<AnalysisState>()(
         const state = persisted as Partial<AnalysisState> | undefined;
         const result = state?.currentResult;
         if (!result?.signalSamples?.length || !result.signalProfile) {
-          return { currentResult: null, setResult: (r: AnalysisResult) => ({ currentResult: r }), reset: () => ({ currentResult: null }) } as unknown as AnalysisState;
+          return { currentResult: null };
         }
-        return state as AnalysisState;
+        return { currentResult: result };
       },
     },
   ),
