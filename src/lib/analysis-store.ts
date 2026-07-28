@@ -17,10 +17,19 @@ export const useAnalysisStore = create<AnalysisState>()(
     }),
     {
       name: "somnia-analysis",
+      version: 2,
       storage: createJSONStorage(() =>
         typeof window !== "undefined" ? window.localStorage : (undefined as unknown as Storage),
       ),
       partialize: (s) => ({ currentResult: s.currentResult }),
+      migrate: (persisted) => {
+        const state = persisted as Partial<AnalysisState> | undefined;
+        const result = state?.currentResult;
+        if (!result?.signalSamples?.length || !result.signalProfile) {
+          return { currentResult: null, setResult: (r: AnalysisResult) => ({ currentResult: r }), reset: () => ({ currentResult: null }) } as unknown as AnalysisState;
+        }
+        return state as AnalysisState;
+      },
     },
   ),
 );
