@@ -6,7 +6,7 @@ import {
   TreePine, Split, LineChart as LineIcon,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CONDITION_META, type ConditionKey } from "@/lib/demo-data";
+import { CONDITION_META, type ConditionKey } from "@/lib/analysis-types";
 import { EEGWave } from "@/components/eeg-wave";
 
 export const Route = createFileRoute("/technology")({

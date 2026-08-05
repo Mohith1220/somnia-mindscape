@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { generateWaveform } from "@/lib/demo-data";
+import { generateWaveform } from "@/lib/waveform";
 
 interface Props {
   seed?: number;

@@ -1,5 +1,5 @@
-import type { AnalysisResult } from "./demo-data";
-import { CONDITION_HEX, CONDITION_META, RISK_HEX } from "./demo-data";
+import type { AnalysisResult } from "./analysis-types";
+import { CONDITION_HEX, CONDITION_META, RISK_HEX } from "./analysis-types";
 
 function escape(s: string) {
   return s.replace(/[&<>"']/g, (c) =>

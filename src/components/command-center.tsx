@@ -4,10 +4,10 @@ import { Brain, Waves, Radar, Sparkles, ShieldAlert, ActivitySquare } from "luci
 import {
   CONDITION_META,
   RISK_COLOR,
-  generateWaveform,
   type AnalysisResult,
   type ConditionKey,
-} from "@/lib/demo-data";
+} from "@/lib/analysis-types";
+import { generateWaveform } from "@/lib/waveform";
 import { EEGWave } from "@/components/eeg-wave";
 
 type ViewMode = "neural" | "eeg" | "feature" | "ai";

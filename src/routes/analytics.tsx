@@ -1,199 +1,294 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { Award, Target, Boxes, Layers } from "lucide-react";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, Legend, Cell,
-  PieChart, Pie,
-} from "recharts";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CONFUSION_MATRIX, DATASET_DISTRIBUTION, MODEL_METRICS } from "@/lib/demo-data";
+import { BarChart3, Trees, Layers, AlertTriangle, RefreshCw, Cpu } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
+import { Button } from "@/components/ui/button";
+import { CONDITION_HEX, type ConditionKey } from "@/lib/analysis-types";
+import { fetchModelInfo, ML_API_BASE, type ModelInfo } from "@/lib/ml-api";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({
     meta: [
       { title: "Model Intelligence Lab — SOMNIA AI" },
-      { name: "description", content: "Explore model performance, classification metrics, and evaluation results across Random Forest, SVM, and Logistic Regression." },
+      { name: "description", content: "Live Random Forest metrics: accuracy, precision, recall, F1 and the confusion matrix from the trained model." },
+      { property: "og:title", content: "Model Intelligence Lab — SOMNIA AI" },
+      { property: "og:description", content: "Live Random Forest metrics read directly from the trained model artifact." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AnalyticsPage,
 });
 
-const METRICS = ["accuracy", "precision", "recall", "f1"] as const;
-type MetricKey = typeof METRICS[number];
-const METRIC_LABEL: Record<MetricKey, string> = { accuracy: "Accuracy", precision: "Precision", recall: "Recall", f1: "F1 Score" };
-const COLORS = ["var(--status-normal)", "var(--status-moderate)", "var(--status-high)", "var(--status-critical)"];
+const LABEL_TO_KEY: Record<string, ConditionKey> = {
+  Normal: "normal",
+  Insomnia: "insomnia",
+  "Sleep Apnea": "apnea",
+  Seizure: "seizure",
+  "Seizure Activity": "seizure",
+};
+
+function hexFor(label: string) {
+  return CONDITION_HEX[LABEL_TO_KEY[label] ?? "normal"] ?? "#22d3ee";
+}
 
 function AnalyticsPage() {
-  const [metric, setMetric] = useState<MetricKey>("accuracy");
+  const [model, setModel] = useState<ModelInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setModel(await fetchModelInfo());
+    } catch (err) {
+      setModel(null);
+      setError(err instanceof Error ? err.message : "Unable to reach the analysis engine.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const evaluation = model?.evaluation ?? null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Model Analytics</div>
-        <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">Model Intelligence Lab</h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Explore model performance, classification metrics, and evaluation results.
-        </p>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Model Intelligence</div>
+          <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">Model Intelligence Lab</h1>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Every figure below is read from the trained Random Forest artifact and its evaluation run — nothing here is illustrative.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+        </Button>
       </motion.div>
 
-      {/* Top KPIs */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPI icon={Award} label="Best Performing Model" value="Random Forest" hint="Highest accuracy across all metrics" accent="var(--accent-cyan)" />
-        <KPI icon={Target} label="Reported Project Accuracy" value="92.4%" hint="Source: project documentation" accent="var(--status-normal)" />
-        <KPI icon={Boxes} label="Models Evaluated" value="3" hint="RF · SVM · Logistic Regression" accent="var(--accent-blue)" />
-        <KPI icon={Layers} label="Detection Classes" value="4" hint="Normal · Insomnia · Apnea · Seizure" accent="var(--status-moderate)" />
-      </div>
-
-      {/* Model comparison */}
-      <div className="mt-8 glass-card rounded-2xl p-6 sm:p-8">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      {error && (
+        <div className="mt-8 flex items-start gap-3 rounded-xl border border-status-critical/40 bg-status-critical/5 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-critical" />
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Comparison</div>
-            <h2 className="mt-1 text-xl font-semibold">Model Performance Comparison</h2>
-            <p className="text-sm text-muted-foreground mt-1">Interactive comparison across the three evaluated classifiers.</p>
+            <div className="font-medium text-status-critical">Model metrics unavailable</div>
+            <p className="mt-1 text-muted-foreground">
+              {error} Start the service with <code className="font-mono text-foreground">uvicorn backend.app:app --port 8000</code> or point{" "}
+              <code className="font-mono text-foreground">VITE_ML_API_URL</code> at your hosted API. Target:{" "}
+              <span className="font-mono text-foreground">{ML_API_BASE}</span>
+            </p>
           </div>
-          <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface/60 p-1">
-            {METRICS.map((m) => (
-              <button
-                key={m}
-                onClick={() => setMetric(m)}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  metric === m ? "bg-accent-cyan/15 text-accent-cyan" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {METRIC_LABEL[m]}
-              </button>
+        </div>
+      )}
+
+      {loading && !model && <div className="mt-10 text-sm text-muted-foreground">Reading model artifact…</div>}
+
+      {model && (
+        <>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: Cpu, k: "Algorithm", v: model.model_type },
+              { icon: Trees, k: "Decision Trees", v: String(model.n_estimators) },
+              { icon: Layers, k: "Input Features", v: String(model.n_features) },
+              { icon: BarChart3, k: "Total Nodes", v: model.total_nodes != null ? model.total_nodes.toLocaleString() : "—" },
+            ].map((s) => (
+              <div key={s.k} className="glass-card rounded-2xl p-5">
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <s.icon className="h-3.5 w-3.5 text-accent-cyan" /> {s.k}
+                </div>
+                <div className="mt-2 text-2xl font-semibold tabular-nums">{s.v}</div>
+              </div>
             ))}
           </div>
-        </div>
-        <div className="mt-6 h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={MODEL_METRICS} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="model" tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
-              <YAxis domain={[0, 100]} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} unit="%" />
-              <RTooltip
-                contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => [`${v}%`, METRIC_LABEL[metric]]}
-              />
-              <Bar dataKey={metric} radius={[8, 8, 0, 0]}>
-                {MODEL_METRICS.map((m, i) => (
-                  <Cell key={i} fill={m.primary ? "var(--accent-cyan)" : "var(--accent-blue)"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="mt-4 text-xs text-muted-foreground">
-          Full 0–100% scale used for honest visual comparison. Random Forest is designated as the primary classification model.
-        </div>
-      </div>
 
-      {/* Confusion matrix & distribution */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="glass-card rounded-2xl p-6 sm:p-8">
-          <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Classification</div>
-          <h2 className="mt-1 text-xl font-semibold">Confusion Matrix</h2>
-          <p className="text-sm text-muted-foreground mt-1">Random Forest — actual vs. predicted class counts.</p>
-          <ConfusionMatrix />
-          <div className="mt-3 text-xs text-muted-foreground">
-            The confusion matrix compares actual classifications with model predictions and helps identify where classification errors occur.
-          </div>
-        </div>
-
-        <div className="glass-card rounded-2xl p-6 sm:p-8">
-          <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Dataset</div>
-          <h2 className="mt-1 text-xl font-semibold">Detected Condition Distribution</h2>
-          <p className="text-sm text-muted-foreground mt-1">Composition of the evaluation dataset used to assess model performance.</p>
-          <div className="mt-4 grid grid-cols-2 items-center gap-6">
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={DATASET_DISTRIBUTION} dataKey="count" nameKey="condition" innerRadius={45} outerRadius={80} paddingAngle={2}>
-                    {DATASET_DISTRIBUTION.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i]} stroke="var(--background)" strokeWidth={2} />
-                    ))}
-                  </Pie>
-                  <RTooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div className="glass-card rounded-2xl p-6">
+              <div className="text-sm font-semibold">Feature Importance</div>
+              <p className="mt-1 text-xs text-muted-foreground">Gini importance from the trained forest, normalized to 100%.</p>
+              <div className="mt-5 h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={model.feature_importance} layout="vertical" margin={{ left: 24, right: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} unit="%" stroke="var(--muted-foreground)" fontSize={11} />
+                    <YAxis type="category" dataKey="name" width={140} stroke="var(--muted-foreground)" fontSize={11} />
+                    <RTooltip
+                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                      contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }}
+                      formatter={(v: number) => [`${v}%`, "Importance"]}
+                    />
+                    <Bar dataKey="value" radius={[0, 6, 6, 0]} fill="var(--accent-cyan)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <ul className="space-y-2 text-sm">
-              {DATASET_DISTRIBUTION.map((d, i) => (
-                <li key={d.condition} className="flex items-center justify-between rounded-md bg-surface/40 border border-border px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full" style={{ background: COLORS[i] }} />
-                    <span>{d.condition}</span>
+
+            <div className="glass-card rounded-2xl p-6">
+              <div className="text-sm font-semibold">Model Structure</div>
+              <p className="mt-1 text-xs text-muted-foreground">Ensemble geometry inspected from the serialized estimator.</p>
+              <dl className="mt-5 grid gap-3 text-sm">
+                {[
+                  ["Maximum tree depth", model.max_tree_depth != null ? String(model.max_tree_depth) : "—"],
+                  ["Average tree depth", model.avg_tree_depth != null ? model.avg_tree_depth.toFixed(1) : "—"],
+                  ["Output classes", String(model.classes.length)],
+                  ["Feature vector", model.feature_names.join(", ")],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-start justify-between gap-6 border-b border-border/60 pb-2">
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd className="text-right font-mono text-xs">{v}</dd>
                   </div>
-                  <div className="text-xs font-mono">
-                    <span className="text-muted-foreground">{d.count}</span> · <span className="text-foreground">{d.pct}%</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                ))}
+              </dl>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {model.classes.map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+                    style={{ borderColor: `${hexFor(c.label)}55`, background: `${hexFor(c.label)}14`, color: hexFor(c.label) }}>
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: hexFor(c.label) }} />
+                    {c.label}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function KPI({ icon: Icon, label, value, hint, accent }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; hint: string; accent: string }) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="glass-card rounded-2xl p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
-          <div className="mt-2 text-2xl font-semibold">{value}</div>
-        </div>
-        <div className="grid h-9 w-9 place-items-center rounded-lg border" style={{ color: accent, background: `${accent}18`, borderColor: `${accent}40` }}>
-          <Icon className="h-4 w-4" />
-        </div>
-      </div>
-      <div className="mt-3 text-xs text-muted-foreground">{hint}</div>
-    </motion.div>
-  );
-}
-
-function ConfusionMatrix() {
-  const { labels, data } = CONFUSION_MATRIX;
-  const max = Math.max(...data.flat());
-  return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr>
-            <th className="p-2 text-muted-foreground text-left font-medium">Actual \ Pred</th>
-            {labels.map((l) => <th key={l} className="p-2 text-muted-foreground font-medium">{l}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i}>
-              <td className="p-2 text-muted-foreground font-medium">{labels[i]}</td>
-              {row.map((v, j) => {
-                const intensity = v / max;
-                const diagonal = i === j;
-                const bg = diagonal
-                  ? `color-mix(in oklch, var(--status-normal) ${Math.round(intensity * 55)}%, transparent)`
-                  : `color-mix(in oklch, var(--status-critical) ${Math.round(intensity * 55)}%, transparent)`;
-                return (
-                  <td key={j} className="p-1">
-                    <div
-                      title={`${labels[i]} predicted as ${labels[j]}: ${v}`}
-                      className="rounded-md border border-border/50 p-3 text-center font-mono cursor-default hover:border-accent-cyan/60 transition-colors"
-                      style={{ background: bg }}
-                    >
-                      <div className="text-sm font-semibold">{v}</div>
+          {evaluation ? (
+            <>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  ["Accuracy", evaluation.accuracy],
+                  ["Precision", evaluation.precision],
+                  ["Recall", evaluation.recall],
+                  ["F1 Score", evaluation.f1],
+                ].map(([k, v]) => (
+                  <div key={k as string} className="glass-card rounded-2xl p-5">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{k as string}</div>
+                    <div className="mt-2 text-3xl font-semibold tabular-nums text-accent-cyan">
+                      {((v as number) * 100).toFixed(1)}%
                     </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                    <div className="mt-3 h-1.5 rounded-full bg-surface-3 overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-accent-cyan to-accent-blue" style={{ width: `${(v as number) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <div className="glass-card rounded-2xl p-6">
+                  <div className="text-sm font-semibold">Confusion Matrix</div>
+                  <p className="mt-1 text-xs text-muted-foreground">{evaluation.samples_evaluated.toLocaleString()} evaluation samples · rows are true labels.</p>
+                  <div className="mt-5 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr>
+                          <th className="p-2" />
+                          {evaluation.labels.map((l) => (
+                            <th key={l} className="p-2 font-medium text-muted-foreground">{l}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {evaluation.confusion_matrix.map((row, i) => {
+                          const rowTotal = row.reduce((s, v) => s + v, 0) || 1;
+                          return (
+                            <tr key={evaluation.labels[i]}>
+                              <td className="p-2 text-right font-medium text-muted-foreground whitespace-nowrap">{evaluation.labels[i]}</td>
+                              {row.map((v, j) => {
+                                const intensity = v / rowTotal;
+                                return (
+                                  <td key={j} className="p-1">
+                                    <div
+                                      className="grid h-12 place-items-center rounded-lg border font-mono tabular-nums"
+                                      style={{
+                                        background: i === j ? `rgba(34,211,238,${0.08 + intensity * 0.42})` : `rgba(239,68,68,${intensity * 0.35})`,
+                                        borderColor: i === j ? "rgba(34,211,238,0.35)" : "var(--border)",
+                                      }}
+                                    >
+                                      {v}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="glass-card rounded-2xl p-6">
+                  <div className="text-sm font-semibold">Per-Class Performance</div>
+                  <p className="mt-1 text-xs text-muted-foreground">Precision, recall and F1 measured per condition.</p>
+                  <div className="mt-5 space-y-4">
+                    {evaluation.per_class.map((c) => (
+                      <div key={c.label}>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: hexFor(c.label) }} />
+                            {c.label}
+                            <span className="text-muted-foreground">· {c.support} samples</span>
+                          </span>
+                          <span className="font-mono">{(c.f1 * 100).toFixed(1)}% F1</span>
+                        </div>
+                        <div className="mt-1.5 grid grid-cols-2 gap-2">
+                          {[["Precision", c.precision], ["Recall", c.recall]].map(([k, v]) => (
+                            <div key={k as string}>
+                              <div className="flex justify-between text-[10px] text-muted-foreground">
+                                <span>{k as string}</span>
+                                <span className="font-mono">{((v as number) * 100).toFixed(1)}%</span>
+                              </div>
+                              <div className="mt-1 h-1.5 rounded-full bg-surface-3 overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${(v as number) * 100}%`, background: hexFor(c.label) }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {evaluation.class_distribution.length > 0 && (
+                    <div className="mt-6 border-t border-border/60 pt-5">
+                      <div className="text-xs font-semibold">Evaluation Set Distribution</div>
+                      <div className="mt-3 h-[160px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={evaluation.class_distribution}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                            <XAxis dataKey="condition" stroke="var(--muted-foreground)" fontSize={10} />
+                            <YAxis stroke="var(--muted-foreground)" fontSize={10} />
+                            <RTooltip
+                              cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                              contentStyle={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }}
+                            />
+                            <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                              {evaluation.class_distribution.map((d) => (
+                                <Cell key={d.condition} fill={hexFor(d.condition)} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="mt-6 glass-card rounded-2xl p-6 text-sm text-muted-foreground">
+              <div className="font-medium text-foreground">No evaluation metrics recorded yet</div>
+              <p className="mt-1">
+                Accuracy, precision, recall and the confusion matrix are only shown when the model has been evaluated against a held-out
+                set. Run <code className="font-mono text-foreground">python backend/serialize.py</code> with your training data to generate{" "}
+                <code className="font-mono text-foreground">backend/models/metrics.json</code>. No placeholder scores are displayed here.
+              </p>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
