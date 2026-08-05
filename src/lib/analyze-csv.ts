@@ -516,6 +516,98 @@ function buildSignalSamples(sourceValues: number[] | undefined, features: Featur
   return synthetic.map((v) => round1(features.mean + (v / maxSynthetic) * desiredAbs));
 }
 
+const ML_API_URL =
+  (import.meta.env['VITE_ML_API_URL'] as string | undefined) ?? "http://localhost:8000/predict";
+
+const CONDITION_BY_ID: Record<number, ConditionKey> = {
+  0: "normal",
+  1: "insomnia",
+  2: "apnea",
+  3: "seizure",
+};
+
+type BackendPrediction = {
+  success?: boolean;
+  condition?: string;
+  condition_id?: number;
+  confidence?: number;
+  probabilities?: Partial<Record<ConditionKey, number>>;
+};
+
+/** Calls the FastAPI Random Forest service. Returns null when unreachable/invalid. */
+async function fetchBackendPrediction(file: File): Promise<BackendPrediction | null> {
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(ML_API_URL, { method: "POST", body: form, signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const json = (await res.json()) as BackendPrediction;
+    if (json?.success === false) return null;
+    if (typeof json?.condition_id !== "number" && typeof json?.condition !== "string") return null;
+    return json;
+  } catch {
+    return null;
+  }
+}
+
+/** Overrides only classification fields; every other visual/derived metric is preserved. */
+function applyBackendPrediction(result: AnalysisResult, pred: BackendPrediction): AnalysisResult {
+  const key =
+    (typeof pred.condition_id === "number" ? CONDITION_BY_ID[pred.condition_id] : undefined) ??
+    result.condition;
+
+  const confidence =
+    typeof pred.confidence === "number" && Number.isFinite(pred.confidence)
+      ? round1(clamp(pred.confidence, 0, 100))
+      : result.confidence;
+
+  let probabilities = result.probabilities;
+  const p = pred.probabilities;
+  if (p) {
+    const raw = {
+      normal: Number(p.normal ?? 0),
+      insomnia: Number(p.insomnia ?? 0),
+      apnea: Number(p.apnea ?? 0),
+      seizure: Number(p.seizure ?? 0),
+    };
+    const total = raw.normal + raw.insomnia + raw.apnea + raw.seizure;
+    if (total > 0) {
+      const scale = 100 / total;
+      const scaled = {
+        normal: round1(raw.normal * scale),
+        insomnia: round1(raw.insomnia * scale),
+        apnea: round1(raw.apnea * scale),
+        seizure: round1(raw.seizure * scale),
+      };
+      // Keep the predicted class exactly equal to the reported confidence, and
+      // absorb any rounding drift so the bars still total 100.0%.
+      scaled[key] = confidence;
+      const others = (Object.keys(scaled) as ConditionKey[]).filter((k) => k !== key);
+      const othersTotal = others.reduce((s, k) => s + scaled[k], 0);
+      const target = round1(100 - confidence);
+      if (othersTotal > 0) {
+        const adj = target / othersTotal;
+        others.forEach((k) => (scaled[k] = round1(scaled[k] * adj)));
+      }
+      const drift = round1(100 - (confidence + others.reduce((s, k) => s + scaled[k], 0)));
+      const biggest = others.reduce((a, b) => (scaled[a] >= scaled[b] ? a : b));
+      scaled[biggest] = round1(Math.max(0, scaled[biggest] + drift));
+      probabilities = scaled;
+    }
+  }
+
+  return {
+    ...result,
+    condition: key,
+    conditionLabel: pred.condition?.trim() || CONDITION_META[key].label,
+    confidence,
+    probabilities,
+  };
+}
+
 export async function analyzeCSVFile(file: File): Promise<AnalysisResult> {
   const text = await file.text();
   const values = parseCSVNumbers(text);
@@ -525,5 +617,9 @@ export async function analyzeCSVFile(file: File): Promise<AnalysisResult> {
   const features = computeFeatures(values);
   const valueFingerprint = values.map((v) => Number(v.toPrecision(12))).join(",");
   const fingerprint = `${values.length}|${hashString(valueFingerprint)}`;
-  return buildResultFromFeatures(features, "uploaded-csv", fingerprint, values);
+  const local = buildResultFromFeatures(features, "uploaded-csv", fingerprint, values);
+
+  const prediction = await fetchBackendPrediction(file);
+  return prediction ? applyBackendPrediction(local, prediction) : local;
 }
+
