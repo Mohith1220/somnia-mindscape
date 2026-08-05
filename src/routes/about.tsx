@@ -1,0 +1,103 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion } from "framer-motion";
+import { Brain, Cpu, Shield, Sparkles, AlertTriangle, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export const Route = createFileRoute("/about")({
+  head: () => ({
+    meta: [
+      { title: "About — SOMNIA AI" },
+      { name: "description", content: "Learn about SOMNIA AI's mission, technology, machine learning approach, and responsible AI principles." },
+    ],
+  }),
+  component: AboutPage,
+});
+
+const SECTIONS = [
+  {
+    icon: Sparkles,
+    title: "Mission",
+    body: "SOMNIA AI explores how machine learning can support early screening of sleep and neurological patterns using EEG-derived statistical features. Our goal is to make intelligent, explainable screening accessible for education and research workflows.",
+  },
+  {
+    icon: Cpu,
+    title: "Technology",
+    body: "The platform runs a Random Forest classifier as its primary model, with SVM and Logistic Regression used for comparative analysis. Signal preprocessing, feature extraction, and standardization are applied before classification.",
+  },
+  {
+    icon: Brain,
+    title: "Machine Learning Approach",
+    body: "We extract five statistical features — mean, standard deviation, variance, min and max amplitude — from EEG windows. These features are scaled and passed to trained classifiers that output class probabilities and a predicted pattern.",
+  },
+  {
+    icon: Shield,
+    title: "Responsible AI",
+    body: "SOMNIA AI emphasizes transparency and explainability. Every prediction is accompanied by class probabilities, feature importance, and clear screening context. Users are never presented with definitive medical conclusions.",
+  },
+];
+
+function AboutPage() {
+  return (
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-12">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">About</div>
+        <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">Intelligent screening, built responsibly.</h1>
+        <p className="mt-3 max-w-2xl text-muted-foreground">
+          SOMNIA AI is an AI-assisted screening platform that analyzes EEG-derived statistical features using machine learning to identify patterns associated with common sleep and neurological conditions.
+        </p>
+      </motion.div>
+
+      <div className="mt-12 grid gap-4 sm:grid-cols-2">
+        {SECTIONS.map((s, i) => (
+          <motion.div key={s.title} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.06 }}
+            className="glass-card rounded-2xl p-6">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan">
+              <s.icon className="h-5 w-5" />
+            </div>
+            <div className="mt-4 text-lg font-semibold">{s.title}</div>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{s.body}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-12">
+        <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Principles</div>
+        <h2 className="mt-1 text-2xl font-semibold">Responsible AI</h2>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { k: "Transparency", d: "Every prediction is accompanied by class probabilities and reference metadata." },
+            { k: "Explainability", d: "Feature contribution is exposed so users see why the model responded as it did." },
+            { k: "Human Oversight", d: "Screening output is presented as a decision-support signal, never as a diagnosis." },
+            { k: "Responsible Screening", d: "Results are clearly framed as AI-assisted screening and encourage professional review." },
+          ].map((p, i) => (
+            <div key={p.k} className="glass-card rounded-2xl p-5">
+              <div className="text-[10px] font-mono text-muted-foreground">P0{i + 1}</div>
+              <div className="mt-1 text-sm font-semibold">{p.k}</div>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{p.d}</p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+        className="mt-8 rounded-2xl border border-status-high/40 bg-status-high/5 p-6">
+        <div className="flex items-start gap-4">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-status-high/15 border border-status-high/30 text-status-high shrink-0">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold uppercase tracking-widest text-status-high">Medical Disclaimer</div>
+            <p className="mt-2 text-sm text-foreground/90 leading-relaxed">
+              SOMNIA AI is designed for educational, research, and AI-assisted screening purposes. Results generated by this system should not be interpreted as a confirmed medical diagnosis. Always consult a qualified healthcare professional for medical evaluation and treatment.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="mt-12 flex flex-wrap gap-3 justify-center">
+        <Link to="/analysis"><Button size="lg" className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow">Start AI Analysis <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
+        <Link to="/technology"><Button size="lg" variant="outline">Read the Technology</Button></Link>
+      </div>
+    </div>
+  );
+}
