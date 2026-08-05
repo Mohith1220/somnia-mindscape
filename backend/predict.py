@@ -109,5 +109,7 @@ def predict_eeg(file_bytes: bytes, filename: str) -> dict:
         "condition": winning_meta["name"],
         "condition_id": winning_class_id,
         "confidence": winning_confidence,
-        "probabilities": probabilities_response
+        "probabilities": probabilities_response,
+        "feature_importance": model_loader.feature_importance(),
+        "windows_analyzed": int(probs_matrix.shape[0])
     }

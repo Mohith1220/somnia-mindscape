@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Brain, Sparkles, Waves, Gauge, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EEGWave } from "@/components/eeg-wave";
-import { CONDITION_META } from "@/lib/demo-data";
+import { CONDITION_META } from "@/lib/analysis-types";
 
 export const Route = createFileRoute("/")({
   head: () => ({

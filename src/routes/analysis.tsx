@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { useRef, useState } from "react";
-import { Upload, FileText, X, CheckCircle2, Sliders, Play, RotateCcw, Info } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Upload, FileText, X, CheckCircle2, Sliders, Play, RotateCcw, Info, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,15 +9,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProcessingOverlay } from "@/components/processing-overlay";
 import { useAnalysisStore } from "@/lib/analysis-store";
-import { analyzeCSVFile, buildResultFromFeatures } from "@/lib/analyze-csv";
-import type { AnalysisResult } from "@/lib/demo-data";
+import { analyzeCSVFile, analyzeFeatures } from "@/lib/analyze-csv";
+import { fetchHealth, fetchModelInfo, ML_API_BASE, type ModelInfo } from "@/lib/ml-api";
+import type { AnalysisResult } from "@/lib/analysis-types";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/analysis")({
   head: () => ({
     meta: [
       { title: "AI Analysis Studio — SOMNIA AI" },
-      { name: "description", content: "Upload EEG data or enter extracted signal features to begin intelligent pattern analysis." },
+      { name: "description", content: "Upload EEG data or enter extracted signal features to run the Random Forest analysis engine." },
     ],
   }),
   component: AnalysisStudio,
@@ -39,9 +40,29 @@ function AnalysisStudio() {
   const [dragOver, setDragOver] = useState(false);
   const [pendingResult, setPendingResult] = useState<AnalysisResult | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [engine, setEngine] = useState<{ online: boolean; modelLoaded: boolean } | null>(null);
+  const [model, setModel] = useState<ModelInfo | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [features, setFeatures] = useState({ mean: "", std: "", variance: "", min: "", max: "" });
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const health = await fetchHealth();
+        if (!active) return;
+        setEngine({ online: true, modelLoaded: !!health.model_loaded });
+        const info = await fetchModelInfo();
+        if (active) setModel(info);
+      } catch {
+        if (active) setEngine({ online: false, modelLoaded: false });
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleFile = async (file: File) => {
     setParsing(true);
@@ -49,9 +70,9 @@ function AnalysisStudio() {
       const result = await analyzeCSVFile(file);
       setPendingResult(result);
       setFileLoaded({ name: file.name, size: `${(file.size / (1024 * 1024)).toFixed(2)} MB` });
-      toast.success("File validated — ready for analysis");
+      toast.success("Classified by the Random Forest engine — ready to open the report");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to read this file.";
+      const message = err instanceof Error ? err.message : "Unable to analyze this file.";
       toast.error(message);
       setFileLoaded(null);
       setPendingResult(null);
@@ -68,12 +89,11 @@ function AnalysisStudio() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const startAnalysis = () => {
+  const startAnalysis = async () => {
     if (fileLoaded && pendingResult) {
       setProcessing(true);
       return;
     }
-    // Manual tab: build result from entered features
     const parsed = {
       mean: parseFloat(features.mean),
       std: parseFloat(features.std),
@@ -85,10 +105,16 @@ function AnalysisStudio() {
       toast.error("Please enter valid numeric values for all features.");
       return;
     }
-    const fingerprint = `${parsed.mean}|${parsed.std}|${parsed.variance}|${parsed.min}|${parsed.max}|manual`;
-    const result = buildResultFromFeatures(parsed, "manual-entry", fingerprint);
-    setPendingResult(result);
-    setProcessing(true);
+    setParsing(true);
+    try {
+      const result = await analyzeFeatures(parsed);
+      setPendingResult(result);
+      setProcessing(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Unable to analyze these features.");
+    } finally {
+      setParsing(false);
+    }
   };
 
   const onProcessingComplete = () => {
@@ -104,6 +130,18 @@ function AnalysisStudio() {
     if (f) handleFile(f);
   };
 
+  const engineOnline = engine?.online && engine.modelLoaded;
+  const statusChips = [
+    {
+      k: "Analysis Engine",
+      v: engine === null ? "Checking…" : engineOnline ? "Online" : "Offline",
+      dot: engine === null ? "var(--muted-foreground)" : engineOnline ? "var(--status-normal)" : "var(--status-critical)",
+    },
+    { k: "Model", v: model?.model_type === "RandomForestClassifier" ? "Random Forest" : model?.model_type ?? "—", dot: "var(--accent-cyan)" },
+    { k: "Input Features", v: model ? String(model.n_features) : "—", dot: "var(--accent-blue)" },
+    { k: "Classes", v: model ? String(model.classes.length) : "—", dot: "var(--status-moderate)" },
+  ];
+
   return (
     <TooltipProvider>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
@@ -111,15 +149,10 @@ function AnalysisStudio() {
           <div className="text-[11px] font-mono uppercase tracking-widest text-accent-cyan">Neural Analysis</div>
           <h1 className="mt-2 text-4xl sm:text-5xl font-semibold tracking-tight">AI Analysis Studio</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Upload your EEG dataset to run intelligent pattern analysis. Every upload is analyzed independently and produces its own report.
+            Every report is produced by the trained Random Forest engine. Upload your EEG dataset and the model classifies it directly.
           </p>
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-2xl">
-            {[
-              { k: "AI Engine", v: "Ready", dot: "var(--status-normal)" },
-              { k: "Model", v: "Random Forest", dot: "var(--accent-cyan)" },
-              { k: "Input Features", v: "5", dot: "var(--accent-blue)" },
-              { k: "Classes", v: "4", dot: "var(--status-moderate)" },
-            ].map((s) => (
+            {statusChips.map((s) => (
               <div key={s.k} className="glass-card rounded-lg px-3 py-2">
                 <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-widest text-muted-foreground">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} /> {s.k}
@@ -129,6 +162,21 @@ function AnalysisStudio() {
             ))}
           </div>
         </motion.div>
+
+        {engine && !engineOnline && (
+          <div className="mt-6 flex items-start gap-3 rounded-xl border border-status-critical/40 bg-status-critical/5 p-4 text-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-critical" />
+            <div>
+              <div className="font-medium text-status-critical">Analysis engine unreachable</div>
+              <p className="mt-1 text-muted-foreground">
+                Results are produced only by the Random Forest service — nothing is simulated in the browser. Start it with{" "}
+                <code className="font-mono text-foreground">uvicorn backend.app:app --port 8000</code>, or point{" "}
+                <code className="font-mono text-foreground">VITE_ML_API_URL</code> at your hosted API. Current target:{" "}
+                <span className="font-mono text-foreground">{ML_API_BASE}</span>
+              </p>
+            </div>
+          </div>
+        )}
 
         <Tabs defaultValue="upload" className="mt-8">
           <TabsList className="bg-surface/70 border border-border">
@@ -174,7 +222,7 @@ function AnalysisStudio() {
                       htmlFor="eeg-file-upload"
                       className={`inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground ${parsing ? "pointer-events-none opacity-50" : ""}`}
                     >
-                      {parsing ? "Reading file…" : "Choose CSV File"}
+                      {parsing ? "Running model…" : "Choose CSV File"}
                     </Label>
                   </div>
                 </div>
@@ -188,14 +236,14 @@ function AnalysisStudio() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="font-medium truncate">{fileLoaded.name}</div>
                         <span className="rounded-full bg-status-normal/15 text-status-normal text-[10px] uppercase tracking-widest px-2 py-0.5 border border-status-normal/30 inline-flex items-center gap-1">
-                          <CheckCircle2 className="h-2.5 w-2.5" /> File Validated
+                          <CheckCircle2 className="h-2.5 w-2.5" /> Model Classified
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">EEG Signal Data · {fileLoaded.size} · Ready for Feature Extraction</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">EEG Signal Data · {fileLoaded.size} · Classified by Random Forest</div>
                       {pendingResult ? (
                         <div className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
                           <div className="rounded-md border border-border/70 bg-surface/50 px-2.5 py-1.5">
-                            <span className="text-muted-foreground">AI Classification</span>
+                            <span className="text-muted-foreground">Model Classification</span>
                             <span className="ml-2 font-mono text-foreground">{pendingResult.conditionLabel}</span>
                           </div>
                           <div className="rounded-md border border-border/70 bg-surface/50 px-2.5 py-1.5">
@@ -218,7 +266,7 @@ function AnalysisStudio() {
                   </div>
                   <div className="mt-6 flex justify-end">
                     <Button size="lg" className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow" onClick={startAnalysis}>
-                      <Play className="h-4 w-4 mr-2" /> Begin AI Analysis
+                      <Play className="h-4 w-4 mr-2" /> Open Intelligence Report
                     </Button>
                   </div>
                 </div>
@@ -261,9 +309,9 @@ function AnalysisStudio() {
                   size="lg"
                   className="bg-accent-cyan text-primary-foreground hover:bg-accent-cyan/90 shadow-glow"
                   onClick={startAnalysis}
-                  disabled={Object.values(features).some((v) => v === "")}
+                  disabled={parsing || Object.values(features).some((v) => v === "")}
                 >
-                  <Play className="h-4 w-4 mr-2" /> Analyze Features
+                  <Play className="h-4 w-4 mr-2" /> {parsing ? "Running model…" : "Analyze Features"}
                 </Button>
               </div>
             </div>

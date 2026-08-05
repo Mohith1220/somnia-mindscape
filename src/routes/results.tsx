@@ -8,7 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAnalysisStore } from "@/lib/analysis-store";
-import { CONDITION_META, generateWaveform } from "@/lib/demo-data";
+import { CONDITION_META } from "@/lib/analysis-types";
+import { generateWaveform } from "@/lib/waveform";
 import { EEGWave } from "@/components/eeg-wave";
 import { CommandCenter } from "@/components/command-center";
 import {
@@ -21,7 +22,11 @@ export const Route = createFileRoute("/results")({
   head: () => ({
     meta: [
       { title: "Health Intelligence Report — SOMNIA AI" },
-      { name: "description", content: "AI-generated screening report with class probabilities, feature importance, and health insights." },
+      { name: "description", content: "Random Forest screening report with class probabilities, feature importance, and health insights." },
+      { property: "og:title", content: "Health Intelligence Report — SOMNIA AI" },
+      { property: "og:description", content: "Random Forest screening report with class probabilities, feature importance, and health insights." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: ResultsPage,
@@ -375,7 +380,7 @@ function SignalChart({ data, zoom, color, smoothed }: { data: number[]; zoom: nu
   );
 }
 
-function FeatureBands({ features }: { features: import("@/lib/demo-data").Features }) {
+function FeatureBands({ features }: { features: import("@/lib/analysis-types").Features }) {
   const rows = [
     { k: "Mean", v: features.mean, min: -0.5, max: 0.5 },
     { k: "Std Dev", v: features.std, min: 5, max: 40 },

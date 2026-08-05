@@ -14,8 +14,25 @@ async def root():
         "status": "online",
         "service": "EEG Neurological Condition Analysis API",
         "model": "Random Forest Classifier",
-        "endpoints": ["/predict", "/health"]
+        "endpoints": ["/predict", "/health", "/model/info"]
     }
+
+
+@router.get("/model/info")
+async def model_info():
+    """
+    Returns real metadata read from the serialized Random Forest model:
+    configuration, class list, trained feature importances, and (when
+    available) evaluation metrics produced during serialization.
+    """
+    try:
+        if not model_loader.is_loaded:
+            model_loader.load()
+        return model_loader.describe()
+    except FileNotFoundError as fnfe:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(fnfe))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @router.get("/health")
 async def health_check():
