@@ -80,7 +80,7 @@ function LandingPage() {
 
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 text-xs text-muted-foreground">
               <div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-accent-cyan" /> AI-assisted screening</div>
-              <div className="flex items-center gap-2"><Gauge className="h-3.5 w-3.5 text-accent-cyan" /> 92.4% reported accuracy</div>
+              <div className="flex items-center gap-2"><Gauge className="h-3.5 w-3.5 text-accent-cyan" /> Live model inference</div>
               <div className="flex items-center gap-2"><Brain className="h-3.5 w-3.5 text-accent-cyan" /> Random Forest primary model</div>
             </div>
           </motion.div>
