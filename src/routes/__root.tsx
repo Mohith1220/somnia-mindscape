@@ -73,12 +73,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "SOMNIA AI — Decode Your Sleep. Understand Your Health." },
       { name: "twitter:description", content: "AI-powered analysis of sleep and neurological patterns for intelligent early-stage health screening." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/623efbf7-564d-4544-9079-06cd85dc8213/id-preview-c76fc638--2c22411e-192d-4418-bfe3-d3014b3654ce.lovable.app-1784393381884.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/623efbf7-564d-4544-9079-06cd85dc8213/id-preview-c76fc638--2c22411e-192d-4418-bfe3-d3014b3654ce.lovable.app-1784393381884.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" },
